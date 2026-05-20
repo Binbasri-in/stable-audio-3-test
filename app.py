@@ -8,7 +8,6 @@ duration); steps / CFG / sampler / seed live in an Advanced accordion.
 
 from __future__ import annotations
 
-# spaces must be imported before any CUDA-touching module.
 import spaces  # noqa: F401
 
 import os
@@ -19,55 +18,24 @@ import time
 import types
 from dataclasses import dataclass
 
-
-# ---------------------------------------------------------------------------
-# Runtime install: flash-attn (then stable-audio-tools).
-#
-# ``stable-audio-tools`` declares flash-attn as a hard dep. flash-attn's
-# setup.py does ``import torch``, but pip's isolated build env on Spaces has
-# no torch — the build fails before pyproject.toml can declare it. We install
-# flash-attn here with ``FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE`` so the wheel
-# materialises in seconds, then install stable-audio-tools (which now sees
-# flash-attn as satisfied). The missing CUDA extension is stubbed below so
-# ``import flash_attn`` succeeds.
-# ---------------------------------------------------------------------------
-
-
-def _ensure_flash_attn() -> None:
-    if "flash_attn_2_cuda" not in sys.modules:
-        sys.modules["flash_attn_2_cuda"] = types.ModuleType("flash_attn_2_cuda")
-    try:
-        import flash_attn  # noqa: F401
-        return
-    except ImportError:
-        pass
-    print("[startup] installing flash-attn (CUDA build skipped) …", flush=True)
-    env = dict(os.environ)
-    env["FLASH_ATTENTION_SKIP_CUDA_BUILD"] = "TRUE"
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "--quiet",
-         "--no-build-isolation", "flash-attn>=2.7.0"],
-        env=env,
-    )
-    import flash_attn  # noqa: F401
-    print("[startup] flash-attn installed.", flush=True)
-
-
 def _ensure_stable_audio_tools() -> None:
     try:
         import stable_audio_tools  # noqa: F401
         return
     except ImportError:
         pass
-    print("[startup] installing stable-audio-tools …", flush=True)
+    # stable-audio-tools 0.0.20 strict-pins torch==2.7.1 / torchaudio==2.7.1,
+    # which lack sm_120 (Blackwell) kernels. Install with --no-deps; the
+    # transitive deps are listed in requirements.txt and resolved against the
+    # sm_120-capable torch at build time.
+    print("[startup] installing stable-audio-tools (--no-deps) …", flush=True)
     subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "--quiet", "stable-audio-tools"],
+        [sys.executable, "-m", "pip", "install", "--quiet", "--no-deps",
+         "stable-audio-tools"],
     )
     import stable_audio_tools  # noqa: F401
     print("[startup] stable-audio-tools installed.", flush=True)
 
-
-_ensure_flash_attn()
 _ensure_stable_audio_tools()
 
 

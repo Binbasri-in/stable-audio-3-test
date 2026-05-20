@@ -1,6 +1,27 @@
---extra-index-url https://download.pytorch.org/whl/cu132 
+--extra-index-url https://download.pytorch.org/whl/cu132
 einops
 soundfile
-PyWavelets>=1.7.0
+numpy<2
+pytorch_lightning
 torch
 torchaudio
+torchvision
+# stable-audio-tools transitive deps (sat itself strict-pins torch==2.7.1, so
+# we install it with --no-deps in app.py and resolve its deps here against
+# our sm_120-capable torch).
+alias-free-torch
+dill
+einops-exts
+huggingface_hub
+importlib-resources
+nnAudio
+PyWavelets
+safetensors
+scipy
+sentencepiece
+soxr
+torchsde
+tqdm
+transformers
+v-diffusion-pytorch
+vector-quantize-pytorch
