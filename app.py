@@ -130,7 +130,7 @@ SAMPLERS = ["pingpong", "k-dpmpp-2m", "k-heun", "dpmpp-2s-ancestral", "dpmpp-3m-
 # ---------------------------------------------------------------------------
 
 
-@spaces.GPU(duration=180)
+@spaces.GPU
 def infer(
     variant_key: str,
     prompt: str,
@@ -196,7 +196,7 @@ def infer(
 DESCRIPTION = """
 # 🎵 Stable Audio 3
 
-Text-to-audio generation with [Stable Audio 3](https://huggingface.co/stabilityai). Pick a variant, write a prompt, hit Generate.
+Text-to-audio generation with <a href="https://huggingface.co/collections/stabilityai/stable-audio-3" target="_blank" rel="noopener noreferrer">Stable Audio 3</a>. Pick a variant, write a prompt, hit Generate.
 """
 
 EXAMPLES = [
@@ -218,7 +218,7 @@ def _on_variant_change(variant_key: str):
     )
 
 
-with gr.Blocks(theme=gr.themes.Soft(), title="Stable Audio 3") as demo:
+with gr.Blocks(theme=gr.themes.Citrus(), title="Stable Audio 3") as demo:
     gr.Markdown(DESCRIPTION)
 
     variant = gr.Radio(
