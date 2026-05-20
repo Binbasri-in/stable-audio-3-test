@@ -72,8 +72,8 @@ _ensure_stable_audio_tools()
 
 
 import gradio as gr
+import soundfile as sf
 import torch
-import torchaudio
 from einops import rearrange
 
 from stable_audio_tools import get_pretrained_model
@@ -216,7 +216,8 @@ def infer(
     output = output[:, : int(duration) * lv.sample_rate]
 
     out_path = os.path.join(tempfile.mkdtemp(), f"sa3_{variant_key}.wav")
-    torchaudio.save(out_path, output, lv.sample_rate)
+    # soundfile expects (samples, channels); our tensor is (channels, samples).
+    sf.write(out_path, output.numpy().T, lv.sample_rate, subtype="PCM_16")
     return out_path
 
 
