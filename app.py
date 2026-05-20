@@ -12,9 +12,64 @@ from __future__ import annotations
 import spaces  # noqa: F401
 
 import os
+import subprocess
+import sys
 import tempfile
 import time
+import types
 from dataclasses import dataclass
+
+
+# ---------------------------------------------------------------------------
+# Runtime install: flash-attn (then stable-audio-tools).
+#
+# ``stable-audio-tools`` declares flash-attn as a hard dep. flash-attn's
+# setup.py does ``import torch``, but pip's isolated build env on Spaces has
+# no torch — the build fails before pyproject.toml can declare it. We install
+# flash-attn here with ``FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE`` so the wheel
+# materialises in seconds, then install stable-audio-tools (which now sees
+# flash-attn as satisfied). The missing CUDA extension is stubbed below so
+# ``import flash_attn`` succeeds.
+# ---------------------------------------------------------------------------
+
+
+def _ensure_flash_attn() -> None:
+    if "flash_attn_2_cuda" not in sys.modules:
+        sys.modules["flash_attn_2_cuda"] = types.ModuleType("flash_attn_2_cuda")
+    try:
+        import flash_attn  # noqa: F401
+        return
+    except ImportError:
+        pass
+    print("[startup] installing flash-attn (CUDA build skipped) …", flush=True)
+    env = dict(os.environ)
+    env["FLASH_ATTENTION_SKIP_CUDA_BUILD"] = "TRUE"
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "--quiet",
+         "--no-build-isolation", "flash-attn>=2.7.0"],
+        env=env,
+    )
+    import flash_attn  # noqa: F401
+    print("[startup] flash-attn installed.", flush=True)
+
+
+def _ensure_stable_audio_tools() -> None:
+    try:
+        import stable_audio_tools  # noqa: F401
+        return
+    except ImportError:
+        pass
+    print("[startup] installing stable-audio-tools …", flush=True)
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "--quiet", "stable-audio-tools"],
+    )
+    import stable_audio_tools  # noqa: F401
+    print("[startup] stable-audio-tools installed.", flush=True)
+
+
+_ensure_flash_attn()
+_ensure_stable_audio_tools()
+
 
 import gradio as gr
 import torch
