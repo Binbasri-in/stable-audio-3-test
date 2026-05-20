@@ -4,3 +4,4 @@ soundfile
 PyWavelets>=1.7.0
 torch
 torchaudio
+stable-audio-tools
