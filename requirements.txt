@@ -1,3 +1,6 @@
 # torch / gradio / spaces are preinstalled on ZeroGPU Spaces.
 stable-audio-tools
 einops
+# PyWavelets 1.7+ ships wheels built for NumPy 2.x; older versions throw a
+# dtype-size ABI error on the ZeroGPU image. Force a fresh wheel.
+PyWavelets>=1.7.0
