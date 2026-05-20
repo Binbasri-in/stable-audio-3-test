@@ -68,7 +68,7 @@ def _ensure_stable_audio_tools() -> None:
 
 
 _ensure_flash_attn()
-_ensure_stable_audio_tools()
+# _ensure_stable_audio_tools()
 
 
 import gradio as gr
