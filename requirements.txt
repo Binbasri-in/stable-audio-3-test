@@ -1,9 +1,4 @@
-# torch / gradio / spaces are preinstalled on ZeroGPU Spaces.
-# stable-audio-tools is installed at app startup (after flash-attn is
-# pre-installed) — its setup.py pulls flash-attn which fails to build in pip's
-# isolated env. See app.py.
 einops
 soundfile
-# PyWavelets 1.7+ ships wheels built for NumPy 2.x; older versions throw a
-# dtype-size ABI error on the ZeroGPU image.
 PyWavelets>=1.7.0
+torchaudio
