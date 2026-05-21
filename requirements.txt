@@ -2,6 +2,8 @@
 einops
 soundfile
 numpy<2
+matplotlib
+Pillow
 pytorch_lightning
 torch
 torchaudio
