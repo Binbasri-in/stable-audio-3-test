@@ -6,14 +6,14 @@ colorTo: purple
 sdk: gradio
 sdk_version: 6.14.0
 app_file: app.py
-pinned: false
+pinned: true
 license: other
 short_description: Text-to-audio with SA3 Medium / Small Music / Small SFX.
 suggested_hardware: zero-a10g
 models:
-  - stabilityai/stable-audio-3-medium
-  - stabilityai/stable-audio-3-small-music
-  - stabilityai/stable-audio-3-small-sfx
+- stabilityai/stable-audio-3-medium
+- stabilityai/stable-audio-3-small-music
+- stabilityai/stable-audio-3-small-sfx
 ---
 
 # Stable Audio 3
