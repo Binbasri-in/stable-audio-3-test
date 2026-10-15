@@ -13,36 +13,25 @@ Two tabs:
 
 from __future__ import annotations
 
-import spaces  # noqa: F401
+try:
+    import spaces  # noqa: F401
+except ImportError:
+    class spaces:  # type: ignore
+        @staticmethod
+        def GPU(fn=None, **kwargs):
+            if fn is not None:
+                return fn
+
+            def decorator(f):
+                return f
+
+            return decorator
 
 import os
-import subprocess
-import sys
 import tempfile
 import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
-
-def _ensure_stable_audio_tools() -> None:
-    try:
-        import stable_audio_tools  # noqa: F401
-        return
-    except ImportError:
-        pass
-    # stable-audio-tools 0.0.20 strict-pins torch==2.7.1 / torchaudio==2.7.1,
-    # which lack sm_120 (Blackwell) kernels. Install with --no-deps; the
-    # transitive deps are listed in requirements.txt and resolved against the
-    # sm_120-capable torch at build time.
-    print("[startup] installing stable-audio-tools (--no-deps) …", flush=True)
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "--quiet", "--no-deps",
-         "stable-audio-tools"],
-    )
-    import stable_audio_tools  # noqa: F401
-    print("[startup] stable-audio-tools installed.", flush=True)
-
-_ensure_stable_audio_tools()
-
 
 import gradio as gr
 import numpy as np
@@ -55,8 +44,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from PIL import Image
 
-from stable_audio_tools import get_pretrained_model
-from stable_audio_tools.inference.generation import generate_diffusion_cond_inpaint
+from stable_audio import get_pretrained_model
+from stable_audio.inference.generation import generate_diffusion_cond_inpaint
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +100,9 @@ class LoadedVariant:
     max_seconds: int
 
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.float16 if torch.cuda.is_available() else torch.float32
+
 LOADED: dict[str, LoadedVariant] = {}
 for v in VARIANTS:
     print(f"[startup] loading {v.repo} …", flush=True)
@@ -118,7 +110,7 @@ for v in VARIANTS:
     model, config = get_pretrained_model(v.repo)
     sr = int(config["sample_rate"])
     ss = int(config["sample_size"])
-    model = model.to("cuda").to(torch.float16)
+    model = model.to(DEVICE).to(DTYPE)
     LOADED[v.key] = LoadedVariant(
         variant=v,
         model=model,
@@ -326,7 +318,7 @@ def _run_inference(
         sample_size=lv.sample_size,
         sampler_type=sampler_type,
         seed=seed_val,
-        device="cuda",
+        device=DEVICE,
         sigma_max=float(sigma_max),
         apg_scale=float(apg_scale),
         duration_padding_sec=float(duration_padding_sec),
