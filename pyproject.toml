@@ -31,4 +31,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["stable_audio"]
+packages = ["stable_audio", "source_separation"]

@@ -65,6 +65,22 @@ from .evaluation import (
     evaluate_source_separation,
 )
 
+# Trainers and Objectives Suite
+from . import trainers
+from .trainers import (
+    BaseTrainer,
+    SingleSourceSeparationLoss,
+    SingleSourceVAELoss,
+    SingleSourceBetaVAELoss,
+    SingleSourceTrainer,
+    LatentContrastiveDivergenceLoss,
+    LatentEBMTrainer,
+    WaveformJEMLoss,
+    WaveformJEMTrainer,
+    AudioJEPATrainer,
+    JEPASeparationTrainer,
+)
+
 __all__ = [
     *datasets.__all__,
     # Data loaders
@@ -120,4 +136,17 @@ __all__ = [
     "SeparationTrainingValidator",
     "TrainingValidationResult",
     "evaluate_source_separation",
+    # Trainers Package
+    "trainers",
+    "BaseTrainer",
+    "SingleSourceSeparationLoss",
+    "SingleSourceVAELoss",
+    "SingleSourceBetaVAELoss",
+    "SingleSourceTrainer",
+    "LatentContrastiveDivergenceLoss",
+    "LatentEBMTrainer",
+    "WaveformJEMLoss",
+    "WaveformJEMTrainer",
+    "AudioJEPATrainer",
+    "JEPASeparationTrainer",
 ]

@@ -178,9 +178,9 @@ class MultiResolutionSTFTLoss(nn.Module):
             pred = pred.to("cpu")
             target = target.to("cpu")
 
-        if pred.ndim == 3 and pred.shape[1] == 1:
-            pred = pred.squeeze(1)
-            target = target.squeeze(1)
+        if pred.ndim == 3:
+            pred = pred.reshape(-1, pred.shape[-1])
+            target = target.reshape(-1, target.shape[-1])
 
         compute_device = pred.device
         total_loss = torch.tensor(0.0, device=compute_device)
