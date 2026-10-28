@@ -32,3 +32,28 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["stable_audio", "source_separation"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+]
+ignore = [
+    "E501",
+    "B008",
+    "RUF022",
+    "BLE001",
+    "B905",
+    "SIM108",
+]
+

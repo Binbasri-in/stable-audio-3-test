@@ -6,12 +6,12 @@ import json
 import math
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
-import numpy as np
 
 from .common import (
     AcousticPriorExtractor,
@@ -20,7 +20,6 @@ from .common import (
     SeparationPairSample,
     StemType,
     TrackMetadata,
-    find_active_time_offsets,
     logger,
 )
 
@@ -28,7 +27,7 @@ from .common import (
 # ---------------------------------------------------------------------------
 
 
-def _resolve_musdb_dir(root_dir: Optional[Union[str, Path]]) -> Path:
+def _resolve_musdb_dir(root_dir: str | Path | None) -> Path:
     """Robustly locates the musdb18 root directory across various execution working directories."""
     if root_dir is not None:
         p = Path(root_dir)
@@ -60,7 +59,7 @@ class MUSDB18Reader:
       - Disk caching for fast track index initialization.
     """
 
-    def __init__(self, root_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, root_dir: str | Path | None = None) -> None:
         self.root_dir = _resolve_musdb_dir(root_dir)
         self.cache_path = self.root_dir / ".musdb18_catalog_cache.json"
         self._check_dependencies()
@@ -75,7 +74,7 @@ class MUSDB18Reader:
                 "Install it using: uv pip install stempeg"
             ) from e
 
-    def scan_split(self, split: str = "train") -> List[TrackMetadata]:
+    def scan_split(self, split: str = "train") -> list[TrackMetadata]:
         """Scans specified split directory ('train' or 'test') and catalogs tracks."""
         split_dir = self.root_dir / split
         if not split_dir.exists():
@@ -178,7 +177,7 @@ class MUSDB18Reader:
 
     def get_track_stem_activity(
         self, track: TrackMetadata, stem_name: str
-    ) -> List[float]:
+    ) -> list[float]:
         """Returns 1-second RMS activity profile for the given stem, computing and caching if needed."""
         if stem_name in track.stem_activity and len(track.stem_activity[stem_name]) > 0:
             return track.stem_activity[stem_name]
@@ -221,11 +220,11 @@ class MUSDB18Reader:
 
     def read_stem_slice(
         self,
-        file_path: Union[str, Path],
+        file_path: str | Path,
         start_sec: float,
         duration_sec: float,
         target_stem: StemType,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Reads a synchronized time segment for mixture and the single target stem.
 
         Args:
@@ -268,16 +267,16 @@ class MUSDB18Reader:
         target = torch.from_numpy(stems[1]).t()  # [channels, samples]
         return mix, target
 
-    def _load_cache(self) -> Dict[str, Any]:
+    def _load_cache(self) -> dict[str, Any]:
         if self.cache_path.exists():
             try:
-                with open(self.cache_path, "r", encoding="utf-8") as f:
+                with open(self.cache_path, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 pass
         return {}
 
-    def _save_cache(self, cache: Dict[str, Any]) -> None:
+    def _save_cache(self, cache: dict[str, Any]) -> None:
         try:
             with open(self.cache_path, "w", encoding="utf-8") as f:
                 json.dump(cache, f, indent=2)
@@ -303,9 +302,9 @@ class MUSDB18SingleSourceDataset(Dataset):
 
     def __init__(
         self,
-        root_dir: Optional[Union[str, Path]] = None,
+        root_dir: str | Path | None = None,
         split: str = "train",
-        target_stem: Union[str, StemType] = "drums",
+        target_stem: str | StemType = "drums",
         segment_duration: float = 10.0,
         sample_rate: int = 44100,
         mono: bool = True,
@@ -320,8 +319,8 @@ class MUSDB18SingleSourceDataset(Dataset):
         n_mels: int = 64,
         hop_length: int = 256,
         n_fft: int = 1024,
-        patch_frames: Optional[int] = None,
-        max_tracks: Optional[int] = None,
+        patch_frames: int | None = None,
+        max_tracks: int | None = None,
         cache_in_memory: bool = False,
     ) -> None:
         super().__init__()
@@ -339,7 +338,7 @@ class MUSDB18SingleSourceDataset(Dataset):
         self.min_active_ratio = min_active_ratio
         self.random_crop = random_crop
         self.cache_in_memory = cache_in_memory
-        self._memory_cache: Dict[int, SeparationPairSample] = {}
+        self._memory_cache: dict[int, SeparationPairSample] = {}
 
         # Target stem configuration
         self.target_stem_str = str(target_stem).lower()
@@ -424,7 +423,7 @@ class MUSDB18SingleSourceDataset(Dataset):
         valid_starts = []
         if profile and len(profile) >= win_sec:
             max_p_start = min(len(profile) - win_sec, int(max_start))
-            for t in range(0, max_p_start + 1):
+            for t in range(max_p_start + 1):
                 win_slice = profile[t : t + win_sec]
                 win_rms = math.sqrt(sum(v**2 for v in win_slice) / len(win_slice))
                 act_ratio = sum(1 for v in win_slice if v >= self.energy_threshold) / len(win_slice)
@@ -446,7 +445,7 @@ class MUSDB18SingleSourceDataset(Dataset):
             max_p_start = min(len(profile) - win_sec, int(max_start))
             best_t = 0
             best_rms = -1.0
-            for t in range(0, max_p_start + 1):
+            for t in range(max_p_start + 1):
                 win_slice = profile[t : t + win_sec]
                 w_rms = sum(v**2 for v in win_slice)
                 if w_rms > best_rms:
@@ -574,7 +573,7 @@ class MUSDB18SingleSourceDataset(Dataset):
             self._memory_cache[idx] = sample
         return sample
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Provides high-level dataset statistics."""
         return {
             "split": self.split,

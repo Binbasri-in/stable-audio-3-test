@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -35,7 +34,7 @@ except ImportError:
     HAS_PYLOUDNORM = False
 
 
-def to_numpy_channels_first(audio: Union[Tensor, np.ndarray]) -> np.ndarray:
+def to_numpy_channels_first(audio: Tensor | np.ndarray) -> np.ndarray:
     """Converts audio to a float32 numpy array with channels-first shape [C, T].
 
     Args:
@@ -57,8 +56,8 @@ def to_numpy_channels_first(audio: Union[Tensor, np.ndarray]) -> np.ndarray:
 
 
 def to_tensor_channels_first(
-    audio: Union[Tensor, np.ndarray],
-    device: Optional[torch.device] = None,
+    audio: Tensor | np.ndarray,
+    device: torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Tensor:
     """Converts audio to a PyTorch Tensor with channels-first shape [C, T] or [B, C, T].

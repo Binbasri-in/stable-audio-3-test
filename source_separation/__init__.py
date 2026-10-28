@@ -1,32 +1,55 @@
 """Reusable source separation datasets, data loaders, evaluation suites, and training validation utilities."""
 
-from . import datasets
-from .datasets import *
+# Evaluation and Validation Suite
+# Trainers and Objectives Suite
+# Neural Network Architectures Suite
+from . import datasets, evaluation, models, trainers
 from .dataloaders import (
     create_moisesdb_dataloader,
     create_slakh_dataloader,
     create_source_separation_dataloader,
 )
+from .datasets import (
+    AcousticPriorExtractor,
+    AudioPreprocessor,
+    DirectorySingleSourceDataset,
+    MoisesDBReader,
+    MoisesDBSingleSourceDataset,
+    MUSDB18Reader,
+    MUSDB18SingleSourceDataset,
+    SeparationAugmentor,
+    SeparationPairSample,
+    SlakhReader,
+    SlakhSingleSourceDataset,
+    SourceSeparationCollator,
+    StemType,
+    TrackMetadata,
+    find_active_time_offsets,
+)
 from .datasets.visualization import (
-    display_sample_players,
     display_audio_player,
+    display_sample_players,
     plot_sample,
     plot_spectrograms,
     plot_waveforms,
     visualize_sample,
 )
-
-# Evaluation and Validation Suite
-from . import evaluation
 from .evaluation import (
-    # Fundamental Metrics & Losses
-    compute_snr,
-    compute_si_sdr,
-    compute_si_sdr_improvement,
-    SpectralConvergenceLoss,
+    CascadedCinematicDemixer,
     LogSTFTMagnitudeLoss,
     MultiResolutionSTFTLoss,
-    create_separation_audio_bundle,
+    SeparationTrainingValidator,
+    SpectralConvergenceLoss,
+    TrainingValidationResult,
+    apply_mixture_consistency,
+    apply_post_processing_scaling,
+    apply_wiener_filter_postprocessing,
+    check_audio_activity_rms,
+    compute_all_sisec_oracles,
+    compute_bss_eval_v4,
+    compute_cdx_global_sdr,
+    compute_cdx_scaled_identity_baseline,
+    compute_mix_anchor,
     # Measurement 1: SiSEC 2018 Oracles & BSS Eval v4
     compute_oracle_ibm,
     compute_oracle_ibm1,
@@ -35,55 +58,84 @@ from .evaluation import (
     compute_oracle_irm1,
     compute_oracle_irm2,
     compute_oracle_mwf,
-    compute_all_sisec_oracles,
-    compute_mix_anchor,
-    compute_bss_eval_v4,
-    evaluate_sisec_mus18,
-    create_sisec_separation_audit_bundle,
+    compute_si_sdr,
+    compute_si_sdr_improvement,
+    # Fundamental Metrics & Losses
+    compute_snr,
+    compute_stereo_panning_spectrum,
     # Measurement 2: SDX'23 CDX Demixing Track
     compute_utterance_sdr,
-    compute_cdx_global_sdr,
-    compute_cdx_scaled_identity_baseline,
-    peak_normalize_audio,
-    least_squares_scale_estimation,
-    apply_mixture_consistency,
-    measure_loudness_lufs,
-    normalize_loudness_lufs,
-    apply_post_processing_scaling,
-    apply_wiener_filter_postprocessing,
-    CascadedCinematicDemixer,
-    check_audio_activity_rms,
-    compute_stereo_panning_spectrum,
+    create_cdx_separation_audit_bundle,
+    create_separation_audio_bundle,
+    create_sisec_separation_audit_bundle,
     design_equalization_matching_filter,
     evaluate_cdx_cinematic_separation,
-    create_cdx_separation_audit_bundle,
+    evaluate_sisec_mus18,
+    evaluate_source_separation,
+    least_squares_scale_estimation,
+    measure_loudness_lufs,
+    normalize_loudness_lufs,
+    peak_normalize_audio,
+    validate_batch,
     # Training Validation Methods
     validate_model_during_training,
-    validate_batch,
-    SeparationTrainingValidator,
-    TrainingValidationResult,
-    evaluate_source_separation,
 )
-
-# Trainers and Objectives Suite
-from . import trainers
+from .models import (
+    # Audio-JEPA
+    AudioJEPA,
+    CompositionalLangevinSeparator,
+    GlowMAPSeparator,
+    JEMSingleSourceSeparator,
+    JEPAGuidedSeparationHead,
+    # Energy-Based Models
+    ScalarLatentEBM,
+    # Spectrogram Models
+    SingleSourceAutoencoder,
+    SingleSourceBetaVAE,
+    SingleSourceVanillaVAE,
+    # Waveform Autoencoders
+    WaveformAutoencoder,
+    WaveformBetaVAE,
+    # Normalizing Flows
+    WaveformGlow,
+    # Joint Energy Models
+    WaveformJEM,
+    WaveformUNetAutoencoder,
+    # Waveform VAEs
+    WaveformVanillaVAE,
+)
 from .trainers import (
+    AudioJEPATrainer,
     BaseTrainer,
-    SingleSourceSeparationLoss,
-    SingleSourceVAELoss,
-    SingleSourceBetaVAELoss,
-    SingleSourceTrainer,
+    JEPASeparationTrainer,
     LatentContrastiveDivergenceLoss,
     LatentEBMTrainer,
+    SingleSourceBetaVAELoss,
+    SingleSourceSeparationLoss,
+    SingleSourceTrainer,
+    SingleSourceVAELoss,
     WaveformJEMLoss,
     WaveformJEMTrainer,
-    AudioJEPATrainer,
-    JEPASeparationTrainer,
 )
 
 __all__ = [
-    *datasets.__all__,
-    # Data loaders
+    # Datasets Package
+    "datasets",
+    "StemType",
+    "SeparationPairSample",
+    "TrackMetadata",
+    "find_active_time_offsets",
+    "AcousticPriorExtractor",
+    "AudioPreprocessor",
+    "SeparationAugmentor",
+    "DirectorySingleSourceDataset",
+    "MUSDB18Reader",
+    "MUSDB18SingleSourceDataset",
+    "MoisesDBReader",
+    "MoisesDBSingleSourceDataset",
+    "SlakhReader",
+    "SlakhSingleSourceDataset",
+    "SourceSeparationCollator",
     "create_source_separation_dataloader",
     "create_moisesdb_dataloader",
     "create_slakh_dataloader",
@@ -149,4 +201,21 @@ __all__ = [
     "WaveformJEMTrainer",
     "AudioJEPATrainer",
     "JEPASeparationTrainer",
+    # Models Package & Architectures
+    "models",
+    "WaveformAutoencoder",
+    "WaveformUNetAutoencoder",
+    "WaveformVanillaVAE",
+    "WaveformBetaVAE",
+    "SingleSourceAutoencoder",
+    "SingleSourceVanillaVAE",
+    "SingleSourceBetaVAE",
+    "WaveformGlow",
+    "GlowMAPSeparator",
+    "ScalarLatentEBM",
+    "CompositionalLangevinSeparator",
+    "WaveformJEM",
+    "JEMSingleSourceSeparator",
+    "AudioJEPA",
+    "JEPAGuidedSeparationHead",
 ]

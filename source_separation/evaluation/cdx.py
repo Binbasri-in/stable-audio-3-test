@@ -32,17 +32,15 @@ Key Features:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
-import scipy.signal as signal
 import torch
-import torch.nn as nn
-from torch import Tensor
+from scipy import signal
+from torch import Tensor, nn
 
 from .common import HAS_PYLOUDNORM, pyln, to_numpy_channels_first
 from .metrics import display_audio_player
-
 
 # ===========================================================================
 # 1. SDX 2023 Cinematic Demixing Track Metrics & Anchor
@@ -50,8 +48,8 @@ from .metrics import display_audio_player
 
 
 def compute_utterance_sdr(
-    target: Union[Tensor, np.ndarray],
-    estimate: Union[Tensor, np.ndarray],
+    target: Tensor | np.ndarray,
+    estimate: Tensor | np.ndarray,
     eps: float = 1e-7,
 ) -> float:
     """Computes utterance-level Signal-to-Distortion Ratio (SDR) (Paper 2, Eq. 2).
@@ -92,10 +90,10 @@ def compute_utterance_sdr(
 
 
 def compute_cdx_global_sdr(
-    targets: Dict[str, Union[Tensor, np.ndarray]],
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
+    targets: dict[str, Tensor | np.ndarray],
+    estimates: dict[str, Tensor | np.ndarray],
     eps: float = 1e-7,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Computes the official CDX ranking metric: Global SDR (Paper 2, Section 2.3, Eq. 2).
 
     Formula:
@@ -131,7 +129,7 @@ def compute_cdx_global_sdr(
     e_map = {canonical_keys[k.lower()]: v for k, v in estimates.items() if k.lower() in canonical_keys}
 
     required = ["dialogue", "effects", "music"]
-    stem_sdrs: Dict[str, float] = {}
+    stem_sdrs: dict[str, float] = {}
 
     for stem in required:
         if stem in t_map and stem in e_map:
@@ -150,9 +148,9 @@ def compute_cdx_global_sdr(
 
 
 def compute_cdx_scaled_identity_baseline(
-    mixture: Union[Tensor, np.ndarray],
-    targets: Optional[Dict[str, Union[Tensor, np.ndarray]]] = None,
-) -> Dict[str, Any]:
+    mixture: Tensor | np.ndarray,
+    targets: dict[str, Tensor | np.ndarray] | None = None,
+) -> dict[str, Any]:
     """Computes the Scaled Identity negative anchor baseline (Paper 2, Section 4, Table 1).
 
     Formula:
@@ -169,7 +167,7 @@ def compute_cdx_scaled_identity_baseline(
         "music": scaled_mix.copy(),
     }
 
-    out: Dict[str, Any] = {"estimates": estimates}
+    out: dict[str, Any] = {"estimates": estimates}
     if targets is not None:
         out["scores"] = compute_cdx_global_sdr(targets, estimates)
     return out
@@ -181,9 +179,9 @@ def compute_cdx_scaled_identity_baseline(
 
 
 def peak_normalize_audio(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     eps: float = 1e-8,
-) -> Tuple[Union[Tensor, np.ndarray], float]:
+) -> tuple[Tensor | np.ndarray, float]:
     """Applies input peak normalization (Paper 2, Section 3.3, Eq. 3).
 
     Formula:
@@ -204,10 +202,10 @@ def peak_normalize_audio(
 
 
 def least_squares_scale_estimation(
-    mixture: Union[Tensor, np.ndarray],
-    estimate: Union[Tensor, np.ndarray],
+    mixture: Tensor | np.ndarray,
+    estimate: Tensor | np.ndarray,
     eps: float = 1e-7,
-) -> Tuple[Union[Tensor, np.ndarray], float]:
+) -> tuple[Tensor | np.ndarray, float]:
     """Recovers optimal scale using least-squares matching to mixture (Paper 2, Eq. 4).
 
     When models are trained with scale-invariant losses (like SI-SDR loss), scale needs
@@ -240,11 +238,11 @@ def least_squares_scale_estimation(
 
 
 def apply_mixture_consistency(
-    mixture: Union[Tensor, np.ndarray],
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    estimates: dict[str, Tensor | np.ndarray],
     mode: str = "cocktail_fork",
-    custom_weights: Optional[Dict[str, float]] = None,
-) -> Dict[str, Union[Tensor, np.ndarray]]:
+    custom_weights: dict[str, float] | None = None,
+) -> dict[str, Tensor | np.ndarray]:
     """Applies mixture consistency post-processing (Wisdom et al., 2019; Paper 2, Section 3.3).
 
     Computes residual:
@@ -272,7 +270,7 @@ def apply_mixture_consistency(
         sum_est = sum(est_tensors.values())
         res = m - sum_est
 
-        refined: Dict[str, Tensor] = {}
+        refined: dict[str, Tensor] = {}
         if mode in ("cocktail_fork", "music_sfx"):
             for k in stem_keys:
                 k_lower = k.lower()
@@ -298,7 +296,7 @@ def apply_mixture_consistency(
         sum_est = sum(est_arrays.values())
         res = m - sum_est
 
-        refined_np: Dict[str, np.ndarray] = {}
+        refined_np: dict[str, np.ndarray] = {}
         if mode in ("cocktail_fork", "music_sfx"):
             for k in stem_keys:
                 k_lower = k.lower()
@@ -321,7 +319,7 @@ def apply_mixture_consistency(
 
 
 def measure_loudness_lufs(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     sample_rate: int = 44100,
 ) -> float:
     """Measures integrated loudness in LUFS following ITU-R BS.1770-4 (Paper 2, Section 4.3 & 5.1).
@@ -346,10 +344,10 @@ def measure_loudness_lufs(
 
 
 def normalize_loudness_lufs(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     target_lufs: float = -27.0,
     sample_rate: int = 44100,
-) -> Tuple[Union[Tensor, np.ndarray], float]:
+) -> tuple[Tensor | np.ndarray, float]:
     """Normalizes audio to a target integrated LUFS level (Paper 2, Section 4.3.2 & 5.2).
 
     Cocktail-fork baseline v1.1 and Team mp3d found input volume normalization crucial:
@@ -371,10 +369,10 @@ def normalize_loudness_lufs(
 
 
 def apply_post_processing_scaling(
-    mixture: Union[Tensor, np.ndarray],
-    estimate: Union[Tensor, np.ndarray],
+    mixture: Tensor | np.ndarray,
+    estimate: Tensor | np.ndarray,
     eps: float = 1e-7,
-) -> Union[Tensor, np.ndarray]:
+) -> Tensor | np.ndarray:
     """Applies Team mp3d's post-processing source scaling (Paper 2, Section 4.3.2).
 
     Multiplies estimated source by 1 / alpha, where:
@@ -388,13 +386,13 @@ def apply_post_processing_scaling(
 
 
 def apply_wiener_filter_postprocessing(
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
-    mixture: Union[Tensor, np.ndarray],
-    target_stems_for_wiener: Optional[List[str]] = None,
+    estimates: dict[str, Tensor | np.ndarray],
+    mixture: Tensor | np.ndarray,
+    target_stems_for_wiener: list[str] | None = None,
     n_fft: int = 2048,
-    hop_length: Optional[int] = None,
+    hop_length: int | None = None,
     eps: float = 1e-7,
-) -> Dict[str, Union[Tensor, np.ndarray]]:
+) -> dict[str, Tensor | np.ndarray]:
     """Applies STFT-based Wiener filter refinement to separated stems (Paper 2, Section 4.3.2).
 
     Team mp3d demonstrated that applying a Wiener filter to dialogue improves Dialogue SDR by +0.3 dB.
@@ -409,7 +407,7 @@ def apply_wiener_filter_postprocessing(
     n_samples = mix_np.shape[-1]
     _, _, X = signal.stft(mix_np, nperseg=n_fft, noverlap=n_fft - hop_length)
 
-    P: Dict[str, np.ndarray] = {}
+    P: dict[str, np.ndarray] = {}
     total_power = np.full_like(np.abs(X), eps)
 
     for k, v in estimates.items():
@@ -418,7 +416,7 @@ def apply_wiener_filter_postprocessing(
         P[k] = np.abs(Yk) ** 2
         total_power += P[k]
 
-    refined: Dict[str, Any] = {}
+    refined: dict[str, Any] = {}
     for k, v in estimates.items():
         is_target = any(t in k.lower() for t in target_stems_for_wiener)
         if is_target:
@@ -463,7 +461,7 @@ class CascadedCinematicDemixer(nn.Module):
         self.background_model = background_model
         self.apply_consistency = apply_consistency
 
-    def forward(self, mixture: Tensor) -> Dict[str, Tensor]:
+    def forward(self, mixture: Tensor) -> dict[str, Tensor]:
         """Separates stereo mixture [B, 2, T] into dialogue, effects, and music stems."""
         # 1. Dialogue extraction
         dx_out = self.dialogue_model(mixture)
@@ -502,10 +500,10 @@ class CascadedCinematicDemixer(nn.Module):
 
 
 def check_audio_activity_rms(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     stem_type: str = "dialogue",
-    custom_threshold: Optional[float] = None,
-) -> Dict[str, Any]:
+    custom_threshold: float | None = None,
+) -> dict[str, Any]:
     """Evaluates RMS activity against the CDXDB23 empirical thresholds (Paper 2, Section 3.2).
 
     Empirical activity thresholds defined in Paper 2:
@@ -546,12 +544,12 @@ def check_audio_activity_rms(
 
 
 def compute_stereo_panning_spectrum(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     sample_rate: int = 44100,
     n_fft: int = 4096,
     overlap_ratio: float = 0.75,
     eps: float = 1e-10,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Computes Stereo Panning Spectrum Psi(f) and Delta(f) (Paper 2, Section 5.1, Eq. 5a & 5b).
 
     Tzanetakis et al. (2007) and Avendano (2003):
@@ -607,15 +605,15 @@ def design_equalization_matching_filter(
 
 
 def evaluate_cdx_cinematic_separation(
-    mixture: Union[Tensor, np.ndarray],
-    targets: Dict[str, Union[Tensor, np.ndarray]],
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    targets: dict[str, Tensor | np.ndarray],
+    estimates: dict[str, Tensor | np.ndarray],
     apply_peak_norm: bool = False,
     apply_ls_scaling: bool = True,
     apply_consistency: bool = True,
-    lufs_norm_target: Optional[float] = None,
+    lufs_norm_target: float | None = None,
     sample_rate: int = 44100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Runs a complete CDX track evaluation pipeline (SDX'23 Cinematic Demixing Track).
 
     Includes:
@@ -653,7 +651,7 @@ def evaluate_cdx_cinematic_separation(
     scaled_baseline = compute_cdx_scaled_identity_baseline(mix_np, t_map)
 
     # 6. Activity gating checks
-    activity_status: Dict[str, Any] = {}
+    activity_status: dict[str, Any] = {}
     for stem in ["dialogue", "effects", "music"]:
         if stem in t_map:
             activity_status[stem] = check_audio_activity_rms(t_map[stem], stem_type=stem)
@@ -670,11 +668,11 @@ def evaluate_cdx_cinematic_separation(
 
 
 def create_cdx_separation_audit_bundle(
-    mixture: Union[Tensor, np.ndarray],
-    targets: Dict[str, Union[Tensor, np.ndarray]],
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    targets: dict[str, Tensor | np.ndarray],
+    estimates: dict[str, Tensor | np.ndarray],
     sample_rate: int = 44100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Displays an interactive multi-track human listening audit for Cinematic Demixing (CDX)."""
     scores = compute_cdx_global_sdr(targets, estimates)
     print("=" * 70)

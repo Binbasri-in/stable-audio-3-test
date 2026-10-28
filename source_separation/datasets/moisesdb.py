@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import soundfile as sf
 import torch
@@ -14,9 +14,9 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from .common import (
+    DEFAULT_DATA_ROOT,
     AcousticPriorExtractor,
     AudioPreprocessor,
-    DEFAULT_DATA_ROOT,
     SeparationAugmentor,
     SeparationPairSample,
     StemType,
@@ -42,7 +42,7 @@ class MoisesDBReader:
     Computes composite mixtures dynamically by summing constituent stems.
     """
 
-    def __init__(self, root_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, root_dir: str | Path | None = None) -> None:
         if root_dir is None:
             default_paths = [
                 DEFAULT_DATA_ROOT / "moisesdb" / "moisesdb_v0.1",
@@ -56,7 +56,7 @@ class MoisesDBReader:
                 root_dir = default_paths[0]
         self.root_dir = Path(root_dir).resolve()
 
-    def scan_catalog(self, target_stem: Optional[str] = None) -> List[Dict[str, Any]]:
+    def scan_catalog(self, target_stem: str | None = None) -> list[dict[str, Any]]:
         """Scans catalog and returns metadata for tracks, optionally filtering by target stem."""
         if not self.root_dir.exists():
             raise FileNotFoundError(f"MoisesDB directory not found: {self.root_dir}")
@@ -65,7 +65,7 @@ class MoisesDBReader:
         for json_path in sorted(self.root_dir.glob("**/data.json")):
             track_dir = json_path.parent
             try:
-                with open(json_path, "r", encoding="utf-8") as f:
+                with open(json_path, encoding="utf-8") as f:
                     meta = json.load(f)
             except Exception as e:
                 logger.warning(f"Failed to read {json_path}: {e}")
@@ -131,8 +131,8 @@ class MoisesDBSingleSourceDataset(Dataset):
 
     def __init__(
         self,
-        root_dir: Optional[Union[str, Path]] = None,
-        target_stem: Union[str, StemType] = "drums",
+        root_dir: str | Path | None = None,
+        target_stem: str | StemType = "drums",
         segment_duration: float = 10.0,
         sample_rate: int = 44100,
         mono: bool = True,
@@ -201,7 +201,7 @@ class MoisesDBSingleSourceDataset(Dataset):
     def __len__(self) -> int:
         return len(self.tracks) * self.samples_per_track
 
-    def _load_stem_audio(self, audio_paths: List[Path]) -> Tensor:
+    def _load_stem_audio(self, audio_paths: list[Path]) -> Tensor:
         """Loads and sums multiple sub-instrument audio files for a single stem."""
         loaded_audios = []
         for p in audio_paths:

@@ -6,7 +6,8 @@ dataset or a batch dictionary returned by ``SourceSeparationCollator``.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,8 +16,8 @@ from torch import Tensor
 
 from .common import SeparationPairSample
 
-AudioLike = Union[Tensor, np.ndarray]
-SampleLike = Union[SeparationPairSample, Mapping[str, Any]]
+AudioLike = Tensor | np.ndarray
+SampleLike = SeparationPairSample | Mapping[str, Any]
 
 
 def _value(sample: SampleLike, name: str, default: Any = None) -> Any:
@@ -92,7 +93,7 @@ def _spectrogram(
     return torch.log(power.clamp_min(1e-5)).numpy()
 
 
-def _theme(dark: bool) -> Dict[str, str]:
+def _theme(dark: bool) -> dict[str, str]:
     return (
         {"background": "#181825", "figure": "#11111b", "text": "#cdd6f4", "grid": "#45475a"}
         if dark
@@ -103,11 +104,11 @@ def _theme(dark: bool) -> Dict[str, str]:
 def plot_waveforms(
     waveforms: Mapping[str, AudioLike] | Sequence[AudioLike],
     sample_rate: int = 44100,
-    titles: Optional[Sequence[str]] = None,
-    figsize: Optional[Tuple[float, float]] = None,
+    titles: Sequence[str] | None = None,
+    figsize: tuple[float, float] | None = None,
     dark_theme: bool = True,
     show: bool = True,
-) -> Tuple[plt.Figure, np.ndarray]:
+) -> tuple[plt.Figure, np.ndarray]:
     """Plot one or more time-domain waveforms and return ``(figure, axes)``."""
     items = list(waveforms.items()) if isinstance(waveforms, Mapping) else list(enumerate(waveforms))
     if not items:
@@ -139,11 +140,11 @@ def plot_spectrograms(
     spectrograms: Mapping[str, AudioLike] | Sequence[AudioLike],
     sample_rate: int = 44100,
     hop_length: int = 256,
-    titles: Optional[Sequence[str]] = None,
-    figsize: Optional[Tuple[float, float]] = None,
+    titles: Sequence[str] | None = None,
+    figsize: tuple[float, float] | None = None,
     dark_theme: bool = True,
     show: bool = True,
-) -> Tuple[plt.Figure, np.ndarray]:
+) -> tuple[plt.Figure, np.ndarray]:
     """Plot one or more time-frequency representations and return ``(figure, axes)``."""
     items = list(spectrograms.items()) if isinstance(spectrograms, Mapping) else list(enumerate(spectrograms))
     if not items:
@@ -196,7 +197,7 @@ def display_audio_player(
 def visualize_sample(
     sample: SampleLike,
     sample_idx: int = 0,
-    sample_rate: Optional[int] = None,
+    sample_rate: int | None = None,
     show_waveforms: bool = True,
     show_spectrograms: bool = True,
     show_player: bool = True,
@@ -204,7 +205,7 @@ def visualize_sample(
     n_fft: int = 1024,
     hop_length: int = 256,
     n_mels: int = 64,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Visualize a dataset sample in time, time-frequency, and audio domains.
 
     Missing residual audio or spectrograms are derived automatically. The
@@ -219,7 +220,7 @@ def visualize_sample(
     audio = {"mix": mix, "target": target, "residual": residual}
 
     names = ("mix_spec", "target_spec", "residual_spec")
-    specs: Dict[str, np.ndarray] = {}
+    specs: dict[str, np.ndarray] = {}
     for name, key in zip(("mix", "target", "residual"), names):
         existing = _value(sample, key)
         if existing is not None:
@@ -234,7 +235,7 @@ def visualize_sample(
     track_id = _sample_value(_value(sample, "track_id", "sample"), sample_idx)
     stem_name = _sample_value(_value(sample, "stem_name", "target"), sample_idx)
     labels = [f"Mixture ({track_id})", f"Target ({stem_name})", "Residual"]
-    result: Dict[str, Any] = {"audio": audio, "spectrograms": specs, "waveforms_fig": None, "spectrograms_fig": None, "player": None}
+    result: dict[str, Any] = {"audio": audio, "spectrograms": specs, "waveforms_fig": None, "spectrograms_fig": None, "player": None}
     if show_waveforms:
         result["waveforms_fig"], _ = plot_waveforms(audio, sr, labels, dark_theme=dark_theme)
     if show_spectrograms:
@@ -244,7 +245,7 @@ def visualize_sample(
     return result
 
 
-def plot_sample(sample: SampleLike, **kwargs: Any) -> Dict[str, Any]:
+def plot_sample(sample: SampleLike, **kwargs: Any) -> dict[str, Any]:
     """Compatibility alias for :func:`visualize_sample`."""
     return visualize_sample(sample, **kwargs)
 
@@ -252,8 +253,8 @@ def plot_sample(sample: SampleLike, **kwargs: Any) -> Dict[str, Any]:
 def display_sample_players(
     sample: SampleLike,
     sample_idx: int = 0,
-    sample_rate: Optional[int] = None,
-) -> Dict[str, Any]:
+    sample_rate: int | None = None,
+) -> dict[str, Any]:
     """Display mixture, target, and residual players for one dataset sample."""
     result = visualize_sample(
         sample,

@@ -20,22 +20,19 @@ Taxonomy of Stems (MUSDB18 standard):
 
 from __future__ import annotations
 
-import json
 import logging
 import math
-import os
 import random
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
-import numpy as np
 import soundfile as sf
 import torch
 import torchaudio
 from torch import Tensor
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "data"
@@ -68,7 +65,7 @@ class StemType(IntEnum):
     VOCALS = 4
 
     @classmethod
-    def from_str(cls, name: Union[str, "StemType"]) -> "StemType":
+    def from_str(cls, name: str | StemType) -> StemType:
         """Parse stem identifier from string with alias normalization."""
         if isinstance(name, cls):
             return name
@@ -149,12 +146,12 @@ class SeparationPairSample:
     # Time-domain waveforms [channels, samples] in range [-1.0, 1.0]
     mix_audio: Tensor
     target_audio: Tensor
-    residual_audio: Optional[Tensor] = None
+    residual_audio: Tensor | None = None
 
     # Time-frequency representations [channels, n_mels/freq, frames]
-    mix_spec: Optional[Tensor] = None
-    target_spec: Optional[Tensor] = None
-    residual_spec: Optional[Tensor] = None
+    mix_spec: Tensor | None = None
+    target_spec: Tensor | None = None
+    residual_spec: Tensor | None = None
 
     # Stem identification
     stem_type: StemType = StemType.DRUMS
@@ -168,9 +165,9 @@ class SeparationPairSample:
     duration: float = 10.0
 
     # Acoustic priors extracted for Style Prior Network conditioning
-    priors: Optional[Dict[str, Tensor]] = field(default_factory=dict)
+    priors: dict[str, Tensor] | None = field(default_factory=dict)
 
-    def to(self, device: torch.device) -> "SeparationPairSample":
+    def to(self, device: torch.device) -> SeparationPairSample:
         """Transfer all PyTorch tensors in sample to target compute device."""
         return SeparationPairSample(
             mix_audio=self.mix_audio.to(device),
@@ -219,7 +216,7 @@ class TrackMetadata:
     duration: float = 0.0
     sample_rate: int = 44100
     channels: int = 2
-    stem_activity: Dict[str, List[float]] = field(default_factory=dict)
+    stem_activity: dict[str, list[float]] = field(default_factory=dict)
 
 
 def find_active_time_offsets(
@@ -229,7 +226,7 @@ def find_active_time_offsets(
     energy_threshold: float = 0.005,
     min_active_ratio: float = 0.5,
     hop_sec: float = 0.5,
-) -> List[int]:
+) -> list[int]:
     """Finds non-silent sample start offsets for target stem in waveform tensor.
 
     Excludes silent segments and guarantees that the target stem is active
@@ -407,7 +404,7 @@ class AcousticPriorExtractor:
         cls,
         target_spec: Tensor,
         stem_type: StemType = StemType.DRUMS,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Extracts complete prior suite formatted for Style Prior Networks."""
         priors = {
             "rhythm": cls.extract_rhythm_prior(target_spec),
@@ -437,8 +434,8 @@ class AudioPreprocessor:
         hop_length: int = 256,
         n_mels: int = 64,
         f_min: float = 20.0,
-        f_max: Optional[float] = None,
-        patch_frames: Optional[int] = None,
+        f_max: float | None = None,
+        patch_frames: int | None = None,
     ) -> None:
         self.sample_rate = sample_rate
         self.mono = mono
@@ -467,7 +464,7 @@ class AudioPreprocessor:
         self,
         waveform: Tensor,
         orig_sr: int,
-        target_samples: Optional[int] = None,
+        target_samples: int | None = None,
     ) -> Tensor:
         """Resamples, downmixes to mono/stereo, normalizes, and pads/crops waveform."""
         # Ensure 2D tensor [channels, samples]
@@ -571,7 +568,7 @@ class SeparationAugmentor:
         self,
         target_audio: Tensor,
         residual_audio: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Applies coordinated augmentations to target and residual, then synthesizes augmented mix.
 
         Returns:
@@ -656,8 +653,8 @@ class DirectorySingleSourceDataset(Dataset):
 
     def __init__(
         self,
-        root_dir: Union[str, Path],
-        target_stem: Union[str, StemType] = "drums",
+        root_dir: str | Path,
+        target_stem: str | StemType = "drums",
         segment_duration: float = 10.0,
         sample_rate: int = 44100,
         mono: bool = True,
@@ -709,7 +706,7 @@ class DirectorySingleSourceDataset(Dataset):
             f"for stem '{self.target_stem.display_name}'. Total samples: {len(self)} (Duration: {self.segment_duration}s)."
         )
 
-    def _discover_pairs(self) -> List[Dict[str, Any]]:
+    def _discover_pairs(self) -> list[dict[str, Any]]:
         """Scans directory hierarchy for matching mixture and target stem files."""
         pairs = []
         stem_name = self.target_stem.display_name
@@ -788,7 +785,6 @@ class DirectorySingleSourceDataset(Dataset):
         needed_samples = int(self.segment_duration * mix_sr)
 
         if min_samples > needed_samples:
-            max_start = min_samples - needed_samples
             cand_offsets = find_active_time_offsets(
                 target_audio=tgt_t[..., :min_samples],
                 needed_samples=needed_samples,
@@ -872,9 +868,9 @@ class SourceSeparationCollator:
     """Collates individual `SeparationPairSample` objects into batched PyTorch tensors."""
 
     def __call__(
-        self, samples: List[SeparationPairSample]
-    ) -> Dict[str, Any]:
-        batch: Dict[str, Any] = {}
+        self, samples: list[SeparationPairSample]
+    ) -> dict[str, Any]:
+        batch: dict[str, Any] = {}
 
         # 1. Batched waveforms: [B, channels, samples]
         batch["mix_audio"] = torch.stack([s.mix_audio for s in samples], dim=0)
@@ -922,7 +918,7 @@ class SourceSeparationCollator:
 
         # 4. Batched Acoustic Priors (Rhythm, Chroma, Centroid, Envelope)
         if samples[0].priors:
-            priors_batch: Dict[str, Tensor] = {}
+            priors_batch: dict[str, Tensor] = {}
             prior_keys = samples[0].priors.keys()
             for k in prior_keys:
                 tensors = [s.priors[k] for s in samples if k in s.priors]

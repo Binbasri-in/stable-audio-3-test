@@ -27,15 +27,15 @@ specifically designed to run periodically during training loops (per-epoch or pe
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from .cdx import compute_utterance_sdr
@@ -53,7 +53,7 @@ from .metrics import (
 class TrainingValidationResult:
     """Structured container holding metrics and audit samples from a validation run."""
 
-    epoch: Optional[int]
+    epoch: int | None
     loss: float
     l1_loss: float
     stft_loss: float
@@ -63,13 +63,13 @@ class TrainingValidationResult:
     si_sdr_std: float
     si_sdri_mean: float
     si_sdri_std: float
-    cdx_sdr_mean: Optional[float] = None
-    cdx_sdr_std: Optional[float] = None
+    cdx_sdr_mean: float | None = None
+    cdx_sdr_std: float | None = None
     num_samples: int = 0
     duration_seconds: float = 0.0
     is_best: bool = False
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    samples: Optional[Dict[str, Tensor]] = None
+    metrics: dict[str, Any] = field(default_factory=dict)
+    samples: dict[str, Tensor] | None = None
 
     def summary(self) -> str:
         """Returns a concise, publication-grade log string for terminal and log files."""
@@ -99,13 +99,13 @@ def _extract_model_output(output: Any) -> Tensor:
 
 def validate_batch(
     model: nn.Module,
-    batch: Dict[str, Any],
-    criterion: Optional[Union[nn.Module, Callable]] = None,
-    device: Optional[Union[torch.device, str]] = None,
+    batch: dict[str, Any],
+    criterion: nn.Module | Callable | None = None,
+    device: torch.device | str | None = None,
     compute_metrics: bool = True,
     mix_key: str = "mix_audio",
     target_key: str = "target_audio",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validates model on a single batch during training.
 
     Args:
@@ -144,7 +144,7 @@ def validate_batch(
             mix = mix[..., :min_len]
 
         l1 = F.l1_loss(estimate, target).item()
-        res: Dict[str, Any] = {
+        res: dict[str, Any] = {
             "l1_loss": l1,
             "loss": l1,
             "estimate": estimate,
@@ -176,9 +176,9 @@ def validate_batch(
 def validate_model_during_training(
     model: nn.Module,
     val_loader: DataLoader,
-    criterion: Optional[Union[nn.Module, Callable]] = None,
-    device: Optional[Union[torch.device, str]] = None,
-    max_batches: Optional[int] = None,
+    criterion: nn.Module | Callable | None = None,
+    device: torch.device | str | None = None,
+    max_batches: int | None = None,
     compute_si_sdri: bool = True,
     compute_cdx_sdr: bool = False,
     compute_stft_loss: bool = True,
@@ -186,8 +186,8 @@ def validate_model_during_training(
     sample_count: int = 3,
     mix_key: str = "mix_audio",
     target_key: str = "target_audio",
-    epoch: Optional[int] = None,
-) -> Dict[str, Any]:
+    epoch: int | None = None,
+) -> dict[str, Any]:
     """Runs a complete, fast validation cycle over a DataLoader during training.
 
     Designed for lightweight periodic execution in trainer loops (e.g. `SingleSourceTrainer`,
@@ -233,15 +233,15 @@ def validate_model_during_training(
 
     mr_stft = MultiResolutionSTFTLoss() if compute_stft_loss else None
 
-    loss_list: List[float] = []
-    l1_list: List[float] = []
-    stft_list: List[float] = []
-    snr_list: List[float] = []
-    si_sdr_list: List[float] = []
-    si_sdri_list: List[float] = []
-    cdx_sdr_list: List[float] = []
+    loss_list: list[float] = []
+    l1_list: list[float] = []
+    stft_list: list[float] = []
+    snr_list: list[float] = []
+    si_sdr_list: list[float] = []
+    si_sdri_list: list[float] = []
+    cdx_sdr_list: list[float] = []
 
-    sample_bundle: Optional[Dict[str, Tensor]] = None
+    sample_bundle: dict[str, Tensor] | None = None
 
     with torch.no_grad():
         for i, batch in enumerate(val_loader):
@@ -316,7 +316,7 @@ def validate_model_during_training(
     elapsed = time.time() - start_time
     n_samples = len(snr_list)
 
-    res: Dict[str, Any] = {
+    res: dict[str, Any] = {
         # Primary validation losses
         "val_loss": float(np.mean(loss_list)) if loss_list else 0.0,
         "val_loss_std": float(np.std(loss_list)) if loss_list else 0.0,
@@ -380,13 +380,13 @@ class SeparationTrainingValidator:
 
     def __init__(
         self,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        checkpoint_dir: str | Path | None = None,
         val_every: int = 1,
         metric_to_track: str = "si_sdr",
         mode: str = "max",
-        patience: Optional[int] = None,
+        patience: int | None = None,
         min_delta: float = 0.01,
-        criterion: Optional[Union[nn.Module, Callable]] = None,
+        criterion: nn.Module | Callable | None = None,
         compute_cdx_sdr: bool = False,
     ) -> None:
         self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir is not None else None
@@ -403,12 +403,12 @@ class SeparationTrainingValidator:
 
         # State tracking
         self.best_score: float = float("-inf") if self.mode == "max" else float("inf")
-        self.best_epoch: Optional[int] = None
+        self.best_epoch: int | None = None
         self.patience_counter: int = 0
-        self.last_result: Optional[TrainingValidationResult] = None
+        self.last_result: TrainingValidationResult | None = None
 
         # Trajectory history
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "epoch": [],
             "val_loss": [],
             "val_l1": [],
@@ -428,9 +428,9 @@ class SeparationTrainingValidator:
         self,
         model: nn.Module,
         val_loader: DataLoader,
-        epoch: Optional[int] = None,
-        max_batches: Optional[int] = None,
-        device: Optional[Union[torch.device, str]] = None,
+        epoch: int | None = None,
+        max_batches: int | None = None,
+        device: torch.device | str | None = None,
     ) -> TrainingValidationResult:
         """Executes validation cycle and updates internal state and history."""
         raw_res = validate_model_during_training(
@@ -517,10 +517,10 @@ class SeparationTrainingValidator:
     def save_best_checkpoint(
         self,
         model: nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        epoch: Optional[int] = None,
-        path: Optional[Union[str, Path]] = None,
-        extra_metadata: Optional[Dict[str, Any]] = None,
+        optimizer: torch.optim.Optimizer | None = None,
+        epoch: int | None = None,
+        path: str | Path | None = None,
+        extra_metadata: dict[str, Any] | None = None,
     ) -> Path:
         """Saves weights and metadata of the best performing checkpoint."""
         if path is None:
@@ -566,7 +566,7 @@ class SeparationTrainingValidator:
         display_audio_player(samples["mixture"][k], sample_rate, f"1. Mixture ({track_id})")
         display_audio_player(samples["target"][k], sample_rate, f"2. Ground Truth ({stem})")
         display_audio_player(samples["estimate"][k], sample_rate, f"3. Model Separated ({stem})")
-        display_audio_player(samples["error"][k], sample_rate, f"4. Error (Target - Estimate)")
+        display_audio_player(samples["error"][k], sample_rate, "4. Error (Target - Estimate)")
 
 
 # ===========================================================================
@@ -578,9 +578,9 @@ def evaluate_source_separation(
     model: nn.Module,
     dataloader: Any,
     device: torch.device,
-    max_batches: Optional[int] = None,
+    max_batches: int | None = None,
     compute_cdx_sdr: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Evaluates source separation model across a dataset, returning metrics and sample tensors.
 
     Computes:

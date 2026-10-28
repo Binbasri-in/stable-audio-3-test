@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import soundfile as sf
 import torch
@@ -14,9 +14,9 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from .common import (
+    DEFAULT_DATA_ROOT,
     AcousticPriorExtractor,
     AudioPreprocessor,
-    DEFAULT_DATA_ROOT,
     SeparationAugmentor,
     SeparationPairSample,
     StemType,
@@ -47,7 +47,7 @@ class SlakhReader:
             S03.wav (e.g. Drums)
     """
 
-    def __init__(self, root_dir: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, root_dir: str | Path | None = None) -> None:
         if root_dir is None:
             default_paths = [
                 DEFAULT_DATA_ROOT / "slakh2100",
@@ -62,8 +62,8 @@ class SlakhReader:
         self.root_dir = Path(root_dir).resolve()
 
     def scan_catalog(
-        self, target_instrument: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, target_instrument: str | None = None
+    ) -> list[dict[str, Any]]:
         """Scans catalog, filtering by instrument class (e.g., 'guitar', 'piano')."""
         if not self.root_dir.exists():
             raise FileNotFoundError(f"Slakh2100 directory not found: {self.root_dir}")
@@ -85,14 +85,14 @@ class SlakhReader:
             stems_meta = {}
             if meta_json.exists():
                 try:
-                    with open(meta_json, "r", encoding="utf-8") as f:
+                    with open(meta_json, encoding="utf-8") as f:
                         data = json.load(f)
                     stems_meta = data.get("stems", {})
                 except Exception as e:
                     logger.warning(f"Failed to read {meta_json}: {e}")
             elif meta_yaml.exists():
                 try:
-                    with open(meta_yaml, "r", encoding="utf-8") as f:
+                    with open(meta_yaml, encoding="utf-8") as f:
                         lines = f.readlines()
                     current_stem = None
                     for line in lines:
@@ -107,7 +107,7 @@ class SlakhReader:
                     logger.warning(f"Failed to parse {meta_yaml}: {e}")
 
             # Map instrument classes to audio paths
-            inst_paths: Dict[str, List[Path]] = {}
+            inst_paths: dict[str, list[Path]] = {}
             for stem_id, s_info in stems_meta.items():
                 inst_class = str(s_info.get("inst_class", "")).lower()
                 fname = s_info.get("file_name", f"{stem_id}.wav")
@@ -121,7 +121,7 @@ class SlakhReader:
                 continue
 
             if target_clean is not None:
-                matching_keys = [k for k in inst_paths.keys() if target_clean in k]
+                matching_keys = [k for k in inst_paths if target_clean in k]
                 if not matching_keys:
                     continue
 
@@ -155,8 +155,8 @@ class SlakhSingleSourceDataset(Dataset):
 
     def __init__(
         self,
-        root_dir: Optional[Union[str, Path]] = None,
-        target_stem: Union[str, StemType] = "guitar",
+        root_dir: str | Path | None = None,
+        target_stem: str | StemType = "guitar",
         segment_duration: float = 10.0,
         sample_rate: int = 44100,
         mono: bool = True,
@@ -241,7 +241,7 @@ class SlakhSingleSourceDataset(Dataset):
         track_info = self.tracks[track_idx]
 
         # Find matching stem keys for target_instrument
-        target_keys = [k for k in track_info["stems"].keys() if self.target_stem_name in k]
+        target_keys = [k for k in track_info["stems"] if self.target_stem_name in k]
         target_paths = track_info["stems"][target_keys[0]]
         target_audio = sum(self._load_audio_file(p) for p in target_paths)
 

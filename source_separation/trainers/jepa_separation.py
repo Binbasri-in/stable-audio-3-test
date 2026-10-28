@@ -6,15 +6,13 @@ on frozen Audio-JEPA acoustic priors using Multi-Resolution STFT and L1 reconstr
 
 from __future__ import annotations
 
-import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torch import nn
 from torch.utils.data import DataLoader
 
 from .base import BaseTrainer, logger
@@ -35,8 +33,8 @@ class JEPASeparationTrainer(BaseTrainer):
         self,
         sep_head: nn.Module,
         optimizer: torch.optim.Optimizer,
-        device: Optional[torch.device] = None,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        device: torch.device | None = None,
+        checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
     ) -> None:
         resolved_device = device or self._resolve_device(sep_head)
@@ -46,13 +44,13 @@ class JEPASeparationTrainer(BaseTrainer):
         self.optimizer = optimizer
         self.stft_loss_fn = MultiResolutionSTFTLoss().to(self.device)
 
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "train_loss": [],
             "l1_loss": [],
             "stft_loss": [],
         }
 
-    def train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
+    def train_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         """Runs one epoch of downstream separation training."""
         self.sep_head.train()
         total_loss = 0.0
@@ -88,7 +86,7 @@ class JEPASeparationTrainer(BaseTrainer):
             "stft_loss": total_stft / max(1, num_batches),
         }
 
-    def fit(self, dataloader: DataLoader, epochs: int = 6) -> Dict[str, List[float]]:
+    def fit(self, dataloader: DataLoader, epochs: int = 6) -> dict[str, list[float]]:
         """Trains the JEPA Separation Head across multiple epochs."""
         logger.info(f"Starting JEPA Separation Head training for {epochs} epochs on device: {self.device}")
         start_time = time.time()
@@ -114,7 +112,7 @@ class JEPASeparationTrainer(BaseTrainer):
         logger.info(f"JEPA Separation Head training finished in {total_dur:.1f}s.")
         return self.history
 
-    def save_checkpoint(self, path: Union[str, Path], epoch: Optional[int] = None) -> None:
+    def save_checkpoint(self, path: str | Path, epoch: int | None = None) -> None:
         """Saves separation head weights, optimizer state, and training metadata."""
         ckpt = {
             "sep_head_state_dict": self.sep_head.state_dict(),
@@ -125,7 +123,7 @@ class JEPASeparationTrainer(BaseTrainer):
         torch.save(ckpt, str(path))
         logger.debug(f"Saved JEPA separation checkpoint to: {path}")
 
-    def load_checkpoint(self, path: Union[str, Path]) -> Dict[str, Any]:
+    def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         """Loads separation head weights and history from checkpoint."""
         ckpt = torch.load(str(path), map_location=self.device)
         self.sep_head.load_state_dict(ckpt["sep_head_state_dict"])

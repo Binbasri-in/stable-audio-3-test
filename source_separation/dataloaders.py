@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -15,9 +14,9 @@ from .datasets.slakh2100 import SlakhSingleSourceDataset
 
 
 def create_source_separation_dataloader(
-    root_dir: Optional[Union[str, Path]] = None,
+    root_dir: str | Path | None = None,
     split: str = "train",
-    target_stem: Union[str, StemType] = "drums",
+    target_stem: str | StemType = "drums",
     batch_size: int = 16,
     num_workers: int = 0,
     segment_duration: float = 10.0,
@@ -28,8 +27,8 @@ def create_source_separation_dataloader(
     samples_per_track: int = 10,
     energy_threshold: float = 0.005,
     min_active_ratio: float = 0.5,
-    patch_frames: Optional[int] = None,
-    max_tracks: Optional[int] = None,
+    patch_frames: int | None = None,
+    max_tracks: int | None = None,
     cache_in_memory: bool = False,
 ) -> DataLoader:
     """Create a DataLoader for MUSDB18 single-source separation."""
@@ -50,8 +49,8 @@ def create_source_separation_dataloader(
 
 
 def create_moisesdb_dataloader(
-    root_dir: Optional[Union[str, Path]] = None,
-    target_stem: Union[str, StemType] = "drums",
+    root_dir: str | Path | None = None,
+    target_stem: str | StemType = "drums",
     batch_size: int = 16,
     num_workers: int = 0,
     segment_duration: float = 10.0,
@@ -78,8 +77,8 @@ def create_moisesdb_dataloader(
 
 
 def create_slakh_dataloader(
-    root_dir: Optional[Union[str, Path]] = None,
-    target_stem: Union[str, StemType] = "guitar",
+    root_dir: str | Path | None = None,
+    target_stem: str | StemType = "guitar",
     batch_size: int = 16,
     num_workers: int = 0,
     segment_duration: float = 10.0,

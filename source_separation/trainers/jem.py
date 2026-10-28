@@ -7,15 +7,13 @@ with short-run SGLD MCMC dynamics).
 
 from __future__ import annotations
 
-import logging
 import math
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from .base import BaseTrainer, logger
@@ -43,7 +41,7 @@ class WaveformJEMLoss(nn.Module):
         targets: Tensor,
         pos_energy: Tensor,
         neg_energy: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         clf_loss = self.ce_loss(logits, targets)
         pos_mean = pos_energy.mean()
         neg_mean = neg_energy.mean()
@@ -72,12 +70,12 @@ class WaveformJEMTrainer(BaseTrainer):
         jem: nn.Module,
         replay_buffer: Any,
         optimizer: torch.optim.Optimizer,
-        criterion: Optional[WaveformJEMLoss] = None,
-        device: Optional[torch.device] = None,
+        criterion: WaveformJEMLoss | None = None,
+        device: torch.device | None = None,
         mcmc_steps: int = 10,
         mcmc_step_size: float = 0.02,
         mcmc_noise_scale: float = 0.005,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
     ) -> None:
         resolved_device = device or self._resolve_device(jem)
@@ -91,7 +89,7 @@ class WaveformJEMTrainer(BaseTrainer):
         self.mcmc_step_size = mcmc_step_size
         self.mcmc_noise_scale = mcmc_noise_scale
 
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "train_loss": [],
             "clf_loss": [],
             "energy_loss": [],
@@ -103,9 +101,9 @@ class WaveformJEMTrainer(BaseTrainer):
 
     def train_epoch(
         self,
-        dataloaders: Dict[str, DataLoader],
-        class_mapping: Dict[str, int],
-    ) -> Dict[str, float]:
+        dataloaders: dict[str, DataLoader],
+        class_mapping: dict[str, int],
+    ) -> dict[str, float]:
         """Runs one epoch of Joint Energy Model training across multi-stem dataloaders."""
         self.jem.train()
         epoch_stats = {
@@ -207,10 +205,10 @@ class WaveformJEMTrainer(BaseTrainer):
 
     def fit(
         self,
-        dataloaders: Dict[str, DataLoader],
-        class_mapping: Dict[str, int],
+        dataloaders: dict[str, DataLoader],
+        class_mapping: dict[str, int],
         epochs: int = 6,
-    ) -> Dict[str, List[float]]:
+    ) -> dict[str, list[float]]:
         """Trains the Waveform JEM across multiple epochs."""
         logger.info(f"Starting JEM training for {epochs} epochs on device: {self.device}")
         start_time = time.time()
@@ -239,7 +237,7 @@ class WaveformJEMTrainer(BaseTrainer):
         logger.info(f"JEM training finished in {total_dur:.1f}s.")
         return self.history
 
-    def save_checkpoint(self, path: Union[str, Path], epoch: Optional[int] = None) -> None:
+    def save_checkpoint(self, path: str | Path, epoch: int | None = None) -> None:
         """Saves JEM weights, optimizer state, and training metadata."""
         ckpt = {
             "jem_state_dict": self.jem.state_dict(),
@@ -250,7 +248,7 @@ class WaveformJEMTrainer(BaseTrainer):
         torch.save(ckpt, str(path))
         logger.debug(f"Saved JEM checkpoint to: {path}")
 
-    def load_checkpoint(self, path: Union[str, Path]) -> Dict[str, Any]:
+    def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         """Loads JEM weights and history from checkpoint."""
         ckpt = torch.load(str(path), map_location=self.device)
         self.jem.load_state_dict(ckpt["jem_state_dict"])

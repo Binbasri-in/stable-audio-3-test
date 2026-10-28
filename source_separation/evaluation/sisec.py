@@ -24,16 +24,14 @@ Key Features:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
-import scipy.signal as signal
-import torch
+from scipy import signal
 from torch import Tensor
 
-from .common import HAS_MUSEVAL, invert_2x2, logger, museval, to_numpy_channels_first
+from .common import HAS_MUSEVAL, invert_2x2, museval, to_numpy_channels_first
 from .metrics import display_audio_player
-
 
 # ===========================================================================
 # 1. SiSEC 2018 Oracle Separation Methods (Stöter et al., Section 2)
@@ -41,13 +39,13 @@ from .metrics import display_audio_player
 
 
 def compute_oracle_ibm(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     alpha: float = 1.0,
     theta: float = 0.5,
     n_fft: int = 2048,
-    hop_length: Optional[int] = None,
-) -> Dict[str, np.ndarray]:
+    hop_length: int | None = None,
+) -> dict[str, np.ndarray]:
     """Computes the Ideal Binary Mask (IBM) oracle separation (SiSEC 2018, Section 2).
 
     Processes all Time-Frequency bins (f, t, i) independently and assigns each bin
@@ -79,7 +77,7 @@ def compute_oracle_ibm(
     _, _, X = signal.stft(mix_np, nperseg=n_fft, noverlap=n_fft - hop_length)
 
     # Compute source fractional power spectrograms
-    P: Dict[str, np.ndarray] = {}
+    P: dict[str, np.ndarray] = {}
     model = np.full_like(np.abs(X), eps)
 
     for name, src in sources.items():
@@ -88,10 +86,10 @@ def compute_oracle_ibm(
         P[name] = np.abs(Yj) ** alpha
         model += P[name]
 
-    estimates: Dict[str, np.ndarray] = {}
+    estimates: dict[str, np.ndarray] = {}
     acc_source = np.zeros_like(mix_np)
 
-    for name in sources.keys():
+    for name in sources:
         ratio = P[name] / model
         mask = (ratio >= theta).astype(np.float32)
 
@@ -111,32 +109,32 @@ def compute_oracle_ibm(
 
 
 def compute_oracle_ibm1(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     theta: float = 0.5,
     n_fft: int = 2048,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Convenience wrapper for IBM1 oracle (magnitude-based majority vote, alpha=1.0)."""
     return compute_oracle_ibm(mixture, sources, alpha=1.0, theta=theta, n_fft=n_fft)
 
 
 def compute_oracle_ibm2(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     theta: float = 0.5,
     n_fft: int = 2048,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Convenience wrapper for IBM2 oracle (power spectrogram majority vote, alpha=2.0)."""
     return compute_oracle_ibm(mixture, sources, alpha=2.0, theta=theta, n_fft=n_fft)
 
 
 def compute_oracle_irm(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     alpha: float = 2.0,
     n_fft: int = 2048,
-    hop_length: Optional[int] = None,
-) -> Dict[str, np.ndarray]:
+    hop_length: int | None = None,
+) -> dict[str, np.ndarray]:
     """Computes the Ideal Ratio Mask (IRM) / alpha-Wiener filter oracle (SiSEC 2018, Eq. 3).
 
     Processes all Time-Frequency bins (f, t, i) via soft mask multiplication:
@@ -166,7 +164,7 @@ def compute_oracle_irm(
     # STFT of mixture
     _, _, X = signal.stft(mix_np, nperseg=n_fft, noverlap=n_fft - hop_length)
 
-    P: Dict[str, np.ndarray] = {}
+    P: dict[str, np.ndarray] = {}
     model = np.full_like(np.abs(X), eps)
 
     for name, src in sources.items():
@@ -175,10 +173,10 @@ def compute_oracle_irm(
         P[name] = np.abs(Yj) ** alpha
         model += P[name]
 
-    estimates: Dict[str, np.ndarray] = {}
+    estimates: dict[str, np.ndarray] = {}
     acc_source = np.zeros_like(mix_np)
 
-    for name in sources.keys():
+    for name in sources:
         mask = P[name] / model
         Yj_est = X * mask
         _, est_audio = signal.istft(Yj_est, nperseg=n_fft, noverlap=n_fft - hop_length)
@@ -195,30 +193,30 @@ def compute_oracle_irm(
 
 
 def compute_oracle_irm1(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     n_fft: int = 2048,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Convenience wrapper for IRM1 oracle (magnitude ratio mask, alpha=1.0)."""
     return compute_oracle_irm(mixture, sources, alpha=1.0, n_fft=n_fft)
 
 
 def compute_oracle_irm2(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     n_fft: int = 2048,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Convenience wrapper for IRM2 oracle (Wiener filter power ratio, alpha=2.0)."""
     return compute_oracle_irm(mixture, sources, alpha=2.0, n_fft=n_fft)
 
 
 def compute_oracle_mwf(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     n_fft: int = 2048,
-    hop_length: Optional[int] = None,
+    hop_length: int | None = None,
     eps: float = 1e-7,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Computes the Multichannel Wiener Filter (MWF) oracle (SiSEC 2018, Section 2, Eq. 4).
 
     Exploits multichannel inter-channel spatial correlations using the classical
@@ -244,66 +242,66 @@ def compute_oracle_mwf(
         hop_length = n_fft // 2
 
     mix_np = to_numpy_channels_first(mixture)
-    I, n_samples = mix_np.shape
+    n_channels, n_samples = mix_np.shape
 
-    # STFT of mixture -> [I, F, T]
+    # STFT of mixture -> [n_channels, F, T]
     _, _, X = signal.stft(mix_np, nperseg=n_fft, noverlap=n_fft - hop_length)
-    I, F, T = X.shape
+    n_channels, F, T = X.shape
 
-    P: Dict[str, np.ndarray] = {}
-    R: Dict[str, np.ndarray] = {}
-    Y: Dict[str, np.ndarray] = {}
+    P: dict[str, np.ndarray] = {}
+    R: dict[str, np.ndarray] = {}
+    Y: dict[str, np.ndarray] = {}
 
     for name, src in sources.items():
         src_np = to_numpy_channels_first(src)
         _, _, Yj = signal.stft(src_np, nperseg=n_fft, noverlap=n_fft - hop_length)
         Y[name] = Yj
 
-        # 1. Compute empirical instantaneous covariance Rjj: [F, T, I, I]
-        Yj_t = np.transpose(Yj, (1, 2, 0))  # [F, T, I]
-        Rjj = np.matmul(Yj_t[..., :, None], np.conj(Yj_t[..., None, :]))  # [F, T, I, I]
+        # 1. Compute empirical instantaneous covariance Rjj: [F, T, n_channels, n_channels]
+        Yj_t = np.transpose(Yj, (1, 2, 0))  # [F, T, n_channels]
+        Rjj = np.matmul(Yj_t[..., :, None], np.conj(Yj_t[..., None, :]))  # [F, T, n_channels, n_channels]
 
         # 2. Initial naive PSD: average power across channels
         P_init = np.mean(np.abs(Yj) ** 2, axis=0)  # [F, T]
 
         # 3. Spatial covariance matrix: average Rjj weighted by 1 / Pj
         weight = 1.0 / (eps + P_init[..., None, None])
-        R_mat = np.mean(Rjj * weight, axis=1)  # [F, I, I]
+        R_mat = np.mean(Rjj * weight, axis=1)  # [F, n_channels, n_channels]
 
         # Regularize: normalize trace and add eps * I
         tr = np.trace(R_mat, axis1=-2, axis2=-1)  # [F]
-        eye = np.eye(I, dtype=np.complex64)[None, ...]
-        R_mat = R_mat * (I / (tr[:, None, None] + eps)) + eps * eye
+        eye = np.eye(n_channels, dtype=np.complex64)[None, ...]
+        R_mat = R_mat * (n_channels / (tr[:, None, None] + eps)) + eps * eye
         R[name] = R_mat
 
-        # 4. Refine Power Spectral Density: v_j(f, t) = 1/I * Re(Tr(R_j(f)^-1 * Rjj(f, t)))
-        if I == 2:
+        # 4. Refine Power Spectral Density: v_j(f, t) = 1/n_channels * Re(Tr(R_j(f)^-1 * Rjj(f, t)))
+        if n_channels == 2:
             Rj_inv = invert_2x2(R_mat, eps)
         else:
             Rj_inv = np.linalg.pinv(R_mat)
 
         P_refined = np.zeros((F, T), dtype=np.float32)
-        for i1 in range(I):
-            for i2 in range(I):
-                P_refined += (1.0 / I) * np.real(Rj_inv[:, i1, i2, None] * Rjj[..., i2, i1])
+        for i1 in range(n_channels):
+            for i2 in range(n_channels):
+                P_refined += (1.0 / n_channels) * np.real(Rj_inv[:, i1, i2, None] * Rjj[..., i2, i1])
         P[name] = np.maximum(P_refined, 0.0)
 
     # 5. Total mixture covariance matrix C_xx = sum_j v_j(f, t) * R_j(f)
-    Cxx = np.zeros((F, T, I, I), dtype=np.complex64)
-    for name in sources.keys():
+    Cxx = np.zeros((F, T, n_channels, n_channels), dtype=np.complex64)
+    for name in sources:
         Cxx += P[name][..., None, None] * R[name][:, None, :, :]
 
-    if I == 2:
+    if n_channels == 2:
         inv_Cxx = invert_2x2(Cxx, eps)
     else:
         inv_Cxx = np.linalg.pinv(Cxx)
 
     # 6. Separate sources by applying Multichannel Wiener Gain: G_j = C_j * inv_Cxx
-    estimates: Dict[str, np.ndarray] = {}
+    estimates: dict[str, np.ndarray] = {}
     acc_source = np.zeros_like(mix_np)
     X_mat = np.transpose(X, (1, 2, 0))[..., :, None]  # [F, T, I, 1]
 
-    for name in sources.keys():
+    for name in sources:
         Cj = P[name][..., None, None] * R[name][:, None, :, :]
         Gj = np.matmul(Cj, inv_Cxx)  # [F, T, I, I]
         Yj_est = np.matmul(Gj, X_mat).squeeze(-1)  # [F, T, I]
@@ -323,10 +321,10 @@ def compute_oracle_mwf(
 
 
 def compute_all_sisec_oracles(
-    mixture: Union[Tensor, np.ndarray],
-    sources: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    sources: dict[str, Tensor | np.ndarray],
     n_fft: int = 2048,
-) -> Dict[str, Dict[str, np.ndarray]]:
+) -> dict[str, dict[str, np.ndarray]]:
     """Computes all 5 official oracle separation methods from SiSEC 2018 (Section 2).
 
     Oracle Systems:
@@ -355,9 +353,9 @@ def compute_all_sisec_oracles(
 
 
 def compute_mix_anchor(
-    mixture: Union[Tensor, np.ndarray],
-    stem_names: List[str],
-) -> Dict[str, np.ndarray]:
+    mixture: Tensor | np.ndarray,
+    stem_names: list[str],
+) -> dict[str, np.ndarray]:
     """Computes the MIX negative anchor baseline (SiSEC 2018, Section 4.2).
 
     Assigns the unprocessed mixture as the estimate for every target stem:
@@ -382,7 +380,7 @@ def _pure_bss_eval_images_time_invariant(
     estimate: np.ndarray,
     filter_length: int = 512,
     eps: float = 1e-10,
-) -> Tuple[float, float, float, float]:
+) -> tuple[float, float, float, float]:
     """Self-contained BSS Eval v4 projection engine with time-invariant distortion filter.
 
     Matches the exact time-invariant linear distortion filter specification from
@@ -445,14 +443,14 @@ def _pure_bss_eval_images_time_invariant(
 
 
 def compute_bss_eval_v4(
-    references: Union[Tensor, np.ndarray, Dict[str, Union[Tensor, np.ndarray]]],
-    estimates: Union[Tensor, np.ndarray, Dict[str, Union[Tensor, np.ndarray]]],
+    references: Tensor | np.ndarray | dict[str, Tensor | np.ndarray],
+    estimates: Tensor | np.ndarray | dict[str, Tensor | np.ndarray],
     sample_rate: int = 44100,
     window_seconds: float = 1.0,
-    hop_seconds: Optional[float] = None,
+    hop_seconds: float | None = None,
     framewise_filters: bool = False,
     compute_permutation: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Computes the official BSS Eval Version 4 metrics (SiSEC 2018, Section 3.2).
 
     Features:
@@ -476,9 +474,9 @@ def compute_bss_eval_v4(
     if hop_seconds is None:
         hop_seconds = window_seconds
 
-    stem_names: List[str] = []
+    stem_names: list[str] = []
     if isinstance(references, dict) and isinstance(estimates, dict):
-        common_stems = [k for k in references.keys() if k in estimates]
+        common_stems = [k for k in references if k in estimates]
         stem_names = common_stems
         ref_list = [to_numpy_channels_first(references[k]) for k in common_stems]
         est_list = [to_numpy_channels_first(estimates[k]) for k in common_stems]
@@ -493,8 +491,8 @@ def compute_bss_eval_v4(
             est_arr = np.transpose(est_arr, (0, 2, 1))
         stem_names = [f"source_{i}" for i in range(ref_arr.shape[0])]
 
-    window_samples = int(round(window_seconds * sample_rate))
-    hop_samples = int(round(hop_seconds * sample_rate))
+    window_samples = round(window_seconds * sample_rate)
+    hop_samples = round(hop_seconds * sample_rate)
 
     if HAS_MUSEVAL:
         try:
@@ -514,7 +512,7 @@ def compute_bss_eval_v4(
 
     if sdr is not None and sdr.size > 0:
         # museval returned arrays of shape [J, n_windows]
-        per_source: Dict[str, Dict[str, float]] = {}
+        per_source: dict[str, dict[str, float]] = {}
         for idx, stem in enumerate(stem_names):
             per_source[stem] = {
                 "sdr_median": float(np.nanmedian(sdr[idx])),
@@ -570,12 +568,12 @@ def compute_bss_eval_v4(
 
 
 def evaluate_sisec_mus18(
-    model_estimates: Dict[str, Union[Tensor, np.ndarray]],
-    reference_sources: Dict[str, Union[Tensor, np.ndarray]],
-    mixture: Optional[Union[Tensor, np.ndarray]] = None,
+    model_estimates: dict[str, Tensor | np.ndarray],
+    reference_sources: dict[str, Tensor | np.ndarray],
+    mixture: Tensor | np.ndarray | None = None,
     compute_oracles: bool = False,
     sample_rate: int = 44100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Runs standard SiSEC 2018 evaluation on MUSDB18 targets (Section 4.1 & 4.2).
 
     Targets evaluated:
@@ -618,7 +616,7 @@ def evaluate_sisec_mus18(
         window_seconds=1.0,
     )
 
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "model_bss_eval_v4": model_metrics,
         "targets": list(reference_sources.keys()),
     }
@@ -637,7 +635,7 @@ def evaluate_sisec_mus18(
     # 3. Oracles
     if compute_oracles and mixture is not None:
         oracles = compute_all_sisec_oracles(mixture, reference_sources)
-        oracle_metrics: Dict[str, Any] = {}
+        oracle_metrics: dict[str, Any] = {}
         for oracle_name, oracle_ests in oracles.items():
             oracle_metrics[oracle_name] = compute_bss_eval_v4(
                 references=reference_sources,
@@ -651,11 +649,11 @@ def evaluate_sisec_mus18(
 
 
 def create_sisec_separation_audit_bundle(
-    mixture: Union[Tensor, np.ndarray],
-    targets: Dict[str, Union[Tensor, np.ndarray]],
-    estimates: Dict[str, Union[Tensor, np.ndarray]],
+    mixture: Tensor | np.ndarray,
+    targets: dict[str, Tensor | np.ndarray],
+    estimates: dict[str, Tensor | np.ndarray],
     sample_rate: int = 44100,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Displays an interactive multi-track human listening audit for MUSDB18 / SiSEC."""
     report = evaluate_sisec_mus18(estimates, targets, mixture=mixture, sample_rate=sample_rate)
     bss = report["model_bss_eval_v4"]

@@ -7,15 +7,13 @@ using Langevin MCMC dynamics and replay buffers.
 
 from __future__ import annotations
 
-import logging
 import math
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from .base import BaseTrainer, logger
@@ -34,7 +32,7 @@ class LatentContrastiveDivergenceLoss(nn.Module):
         super().__init__()
         self.energy_reg = energy_reg
 
-    def forward(self, pos_energy: Tensor, neg_energy: Tensor) -> Dict[str, Tensor]:
+    def forward(self, pos_energy: Tensor, neg_energy: Tensor) -> dict[str, Tensor]:
         pos_mean = pos_energy.mean()
         neg_mean = neg_energy.mean()
         cd_loss = pos_mean - neg_mean
@@ -64,12 +62,12 @@ class LatentEBMTrainer(BaseTrainer):
         encoder: nn.Module,
         replay_buffer: Any,
         optimizer: torch.optim.Optimizer,
-        criterion: Optional[LatentContrastiveDivergenceLoss] = None,
-        device: Optional[torch.device] = None,
+        criterion: LatentContrastiveDivergenceLoss | None = None,
+        device: torch.device | None = None,
         mcmc_steps: int = 20,
         mcmc_step_size: float = 0.02,
         mcmc_noise_scale: float = 0.005,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
     ) -> None:
         resolved_device = device or self._resolve_device(ebm)
@@ -88,7 +86,7 @@ class LatentEBMTrainer(BaseTrainer):
         self.mcmc_step_size = mcmc_step_size
         self.mcmc_noise_scale = mcmc_noise_scale
 
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "train_loss": [],
             "cd_loss": [],
             "reg_loss": [],
@@ -97,7 +95,7 @@ class LatentEBMTrainer(BaseTrainer):
             "energy_gap": [],
         }
 
-    def train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
+    def train_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         """Runs one epoch of Contrastive Divergence training on latent audio representations."""
         self.ebm.train()
         epoch_stats = {
@@ -181,7 +179,7 @@ class LatentEBMTrainer(BaseTrainer):
         avg_stats = {k: v / max(1, num_batches) for k, v in epoch_stats.items()}
         return avg_stats
 
-    def fit(self, train_loader: DataLoader, epochs: int = 10) -> Dict[str, List[float]]:
+    def fit(self, train_loader: DataLoader, epochs: int = 10) -> dict[str, list[float]]:
         """Trains the Latent EBM across multiple epochs."""
         logger.info(f"Starting EBM training for {epochs} epochs on device: {self.device}")
         start_time = time.time()
@@ -209,7 +207,7 @@ class LatentEBMTrainer(BaseTrainer):
         logger.info(f"EBM training finished in {total_dur:.1f}s.")
         return self.history
 
-    def save_checkpoint(self, path: Union[str, Path], epoch: Optional[int] = None) -> None:
+    def save_checkpoint(self, path: str | Path, epoch: int | None = None) -> None:
         """Saves EBM weights, optimizer state, and training trajectory."""
         ckpt = {
             "ebm_state_dict": self.ebm.state_dict(),
@@ -220,7 +218,7 @@ class LatentEBMTrainer(BaseTrainer):
         torch.save(ckpt, str(path))
         logger.debug(f"Saved EBM checkpoint to: {path}")
 
-    def load_checkpoint(self, path: Union[str, Path]) -> Dict[str, Any]:
+    def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         """Loads EBM weights and history from checkpoint."""
         ckpt = torch.load(str(path), map_location=self.device)
         self.ebm.load_state_dict(ckpt["ebm_state_dict"])

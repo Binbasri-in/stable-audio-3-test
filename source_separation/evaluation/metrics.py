@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import math
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
-
-from .common import to_numpy_channels_first, to_tensor_channels_first
-
+from torch import Tensor, nn
 
 # ===========================================================================
 # 1. Core Fundamental Separation Metrics
@@ -155,9 +150,9 @@ class MultiResolutionSTFTLoss(nn.Module):
 
     def __init__(
         self,
-        fft_sizes: Tuple[int, ...] = (512, 1024, 2048),
-        hop_sizes: Tuple[int, ...] = (128, 256, 512),
-        win_lengths: Tuple[int, ...] = (512, 1024, 2048),
+        fft_sizes: tuple[int, ...] = (512, 1024, 2048),
+        hop_sizes: tuple[int, ...] = (128, 256, 512),
+        win_lengths: tuple[int, ...] = (512, 1024, 2048),
     ) -> None:
         super().__init__()
         self.fft_sizes = fft_sizes
@@ -219,7 +214,7 @@ class MultiResolutionSTFTLoss(nn.Module):
 
 
 def display_audio_player(
-    audio: Union[Tensor, np.ndarray],
+    audio: Tensor | np.ndarray,
     sample_rate: int = 44100,
     title: str = "Audio Track",
 ) -> Any:
@@ -253,7 +248,7 @@ def create_separation_audio_bundle(
     estimate: Tensor,
     sample_rate: int = 44100,
     sample_idx: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Prepares and displays a multi-track comparison bundle for a human listener."""
     m = mixture[sample_idx].detach().cpu()
     t = target[sample_idx].detach().cpu()

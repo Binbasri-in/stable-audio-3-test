@@ -859,7 +859,7 @@ class TransformerBlock(nn.Module):
             dim_heads = 64,
             cross_attend = False,
             dim_context = None,
-            global_cond_dim = None,
+            _dim = None,
             local_add_cond_dim = None,
             modular_local_cond_configs = None,
             causal = False,

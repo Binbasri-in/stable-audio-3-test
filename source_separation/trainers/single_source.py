@@ -13,18 +13,13 @@ Features:
 
 from __future__ import annotations
 
-import logging
-import math
-import os
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
 from .base import BaseTrainer, extract_reconstruction, logger
@@ -32,27 +27,18 @@ from .base import BaseTrainer, extract_reconstruction, logger
 try:
     from ..evaluation import (
         MultiResolutionSTFTLoss,
-        evaluate_source_separation,
         validate_model_during_training,
-        validate_batch,
-        SeparationTrainingValidator,
     )
 except (ImportError, ValueError):
     try:
         from source_separation.evaluation import (
             MultiResolutionSTFTLoss,
-            evaluate_source_separation,
             validate_model_during_training,
-            validate_batch,
-            SeparationTrainingValidator,
         )
     except ImportError:
         from evaluation import (
             MultiResolutionSTFTLoss,
-            evaluate_source_separation,
             validate_model_during_training,
-            validate_batch,
-            SeparationTrainingValidator,
         )
 
 
@@ -69,7 +55,7 @@ class SingleSourceSeparationLoss(nn.Module):
         self.alpha_stft = alpha_stft
         self.mr_stft = MultiResolutionSTFTLoss()
 
-    def forward(self, pred: Union[Tensor, Dict[str, Tensor]], target: Tensor) -> Dict[str, Tensor]:
+    def forward(self, pred: Tensor | dict[str, Tensor], target: Tensor) -> dict[str, Tensor]:
         if isinstance(pred, dict):
             pred = pred["recon"]
         l1 = F.l1_loss(pred, target)
@@ -99,9 +85,9 @@ class SingleSourceVAELoss(nn.Module):
 
     def forward(
         self,
-        pred_or_out: Union[Tensor, Dict[str, Tensor]],
+        pred_or_out: Tensor | dict[str, Tensor],
         target: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         if isinstance(pred_or_out, dict):
             pred = pred_or_out["recon"]
             mu = pred_or_out.get("mu", None)
@@ -162,9 +148,9 @@ class SingleSourceBetaVAELoss(nn.Module):
 
     def forward(
         self,
-        pred_or_out: Union[Tensor, Dict[str, Tensor]],
+        pred_or_out: Tensor | dict[str, Tensor],
         target: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         if isinstance(pred_or_out, dict):
             pred = pred_or_out["recon"]
             mu = pred_or_out.get("mu", None)
@@ -217,10 +203,10 @@ class SingleSourceTrainer(BaseTrainer):
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
         device: torch.device,
-        loss_fn: Optional[nn.Module] = None,
-        scheduler: Optional[Any] = None,
+        loss_fn: nn.Module | None = None,
+        scheduler: Any | None = None,
         grad_clip: float = 1.0,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        checkpoint_dir: str | Path | None = None,
     ) -> None:
         super().__init__(device=device, checkpoint_dir=checkpoint_dir, max_grad_norm=grad_clip)
         self.model = model.to(self.device)
@@ -229,7 +215,7 @@ class SingleSourceTrainer(BaseTrainer):
         self.scheduler = scheduler
         self.grad_clip = grad_clip
 
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "epoch": [],
             "train_loss": [],
             "train_l1": [],
@@ -241,7 +227,7 @@ class SingleSourceTrainer(BaseTrainer):
             "val_si_sdri": [],
         }
         self.best_si_sdr = -float("inf")
-        self.best_model_path: Optional[Path] = None
+        self.best_model_path: Path | None = None
 
     @property
     def criterion(self) -> nn.Module:
@@ -259,8 +245,8 @@ class SingleSourceTrainer(BaseTrainer):
     def train_epoch(
         self,
         train_loader: DataLoader,
-        max_batches: Optional[int] = None,
-    ) -> Dict[str, float]:
+        max_batches: int | None = None,
+    ) -> dict[str, float]:
         """Runs one full training epoch over the dataloader."""
         self.model.train()
         total_loss_sum = 0.0
@@ -315,8 +301,8 @@ class SingleSourceTrainer(BaseTrainer):
     def evaluate(
         self,
         val_loader: DataLoader,
-        max_batches: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        max_batches: int | None = None,
+    ) -> dict[str, Any]:
         """Evaluates model performance on validation / cross-dataset loader."""
         return validate_model_during_training(
             model=self.model,
@@ -332,10 +318,10 @@ class SingleSourceTrainer(BaseTrainer):
         val_loader: DataLoader,
         epochs: int = 10,
         val_every: int = 1,
-        max_train_batches: Optional[int] = None,
-        max_val_batches: Optional[int] = None,
+        max_train_batches: int | None = None,
+        max_val_batches: int | None = None,
         save_checkpoints: bool = True,
-    ) -> Dict[str, List[float]]:
+    ) -> dict[str, list[float]]:
         """Trains the model across multiple epochs with periodic validation."""
         logger.info(f"Starting training for {epochs} epochs on device: {self.device}")
         start_time = time.time()
@@ -344,7 +330,7 @@ class SingleSourceTrainer(BaseTrainer):
             ep_start = time.time()
             train_metrics = self.train_epoch(train_loader, max_batches=max_train_batches)
 
-            val_metrics: Optional[Dict[str, Any]] = None
+            val_metrics: dict[str, Any] | None = None
             if epoch % val_every == 0 or epoch == epochs:
                 val_metrics = self.evaluate(val_loader, max_batches=max_val_batches)
 
@@ -394,9 +380,9 @@ class SingleSourceTrainer(BaseTrainer):
 
     def save_checkpoint(
         self,
-        path: Union[str, Path],
-        epoch: Optional[int] = None,
-        si_sdr: Optional[float] = None,
+        path: str | Path,
+        epoch: int | None = None,
+        si_sdr: float | None = None,
     ) -> None:
         """Saves model weights, optimizer state, and training metadata."""
         ckpt = {
@@ -411,7 +397,7 @@ class SingleSourceTrainer(BaseTrainer):
         torch.save(ckpt, str(path))
         logger.debug(f"Saved checkpoint to: {path}")
 
-    def load_checkpoint(self, path: Union[str, Path]) -> Dict[str, Any]:
+    def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         """Loads model weights and optimizer state from checkpoint."""
         ckpt = torch.load(str(path), map_location=self.device)
         self.model.load_state_dict(ckpt["model_state_dict"])
@@ -428,8 +414,8 @@ class SingleSourceTrainer(BaseTrainer):
 
 
 __all__ = [
-    "SingleSourceSeparationLoss",
-    "SingleSourceVAELoss",
     "SingleSourceBetaVAELoss",
+    "SingleSourceSeparationLoss",
     "SingleSourceTrainer",
+    "SingleSourceVAELoss",
 ]

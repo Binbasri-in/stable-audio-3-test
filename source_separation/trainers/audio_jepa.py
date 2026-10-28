@@ -6,14 +6,12 @@ exponential moving average (EMA) target encoder dynamics.
 
 from __future__ import annotations
 
-import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import nn
 from torch.utils.data import DataLoader
 
 from .base import BaseTrainer, logger
@@ -26,8 +24,8 @@ class AudioJEPATrainer(BaseTrainer):
         self,
         jepa: nn.Module,
         optimizer: torch.optim.Optimizer,
-        device: Optional[torch.device] = None,
-        checkpoint_dir: Optional[Union[str, Path]] = None,
+        device: torch.device | None = None,
+        checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
     ) -> None:
         resolved_device = device or self._resolve_device(jepa)
@@ -36,12 +34,12 @@ class AudioJEPATrainer(BaseTrainer):
         self.jepa = jepa.to(self.device)
         self.optimizer = optimizer
 
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "loss": [],
             "cos_sim": [],
         }
 
-    def train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
+    def train_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         """Runs one epoch of masked latent predictive pre-training."""
         self.jepa.train()
         total_loss = 0.0
@@ -70,7 +68,7 @@ class AudioJEPATrainer(BaseTrainer):
         avg_cos_sim = total_cos_sim / max(1, num_batches)
         return {"loss": avg_loss, "cos_sim": avg_cos_sim}
 
-    def fit(self, dataloader: DataLoader, epochs: int = 6) -> Dict[str, List[float]]:
+    def fit(self, dataloader: DataLoader, epochs: int = 6) -> dict[str, list[float]]:
         """Trains the Audio-JEPA model across multiple epochs."""
         logger.info(f"Starting Audio-JEPA pretraining for {epochs} epochs on device: {self.device}")
         start_time = time.time()
@@ -96,7 +94,7 @@ class AudioJEPATrainer(BaseTrainer):
         logger.info(f"Audio-JEPA pretraining finished in {total_dur:.1f}s.")
         return self.history
 
-    def save_checkpoint(self, path: Union[str, Path], epoch: Optional[int] = None) -> None:
+    def save_checkpoint(self, path: str | Path, epoch: int | None = None) -> None:
         """Saves JEPA weights, optimizer state, and pre-training trajectory."""
         ckpt = {
             "jepa_state_dict": self.jepa.state_dict(),
@@ -107,7 +105,7 @@ class AudioJEPATrainer(BaseTrainer):
         torch.save(ckpt, str(path))
         logger.debug(f"Saved Audio-JEPA checkpoint to: {path}")
 
-    def load_checkpoint(self, path: Union[str, Path]) -> Dict[str, Any]:
+    def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         """Loads JEPA weights and history from checkpoint."""
         ckpt = torch.load(str(path), map_location=self.device)
         self.jepa.load_state_dict(ckpt["jepa_state_dict"])
