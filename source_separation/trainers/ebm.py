@@ -69,9 +69,15 @@ class LatentEBMTrainer(BaseTrainer):
         mcmc_noise_scale: float = 0.005,
         checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
+        use_amp: bool = False,
     ) -> None:
         resolved_device = device or self._resolve_device(ebm)
-        super().__init__(device=resolved_device, checkpoint_dir=checkpoint_dir, max_grad_norm=max_grad_norm)
+        super().__init__(
+            device=resolved_device,
+            checkpoint_dir=checkpoint_dir,
+            max_grad_norm=max_grad_norm,
+            use_amp=use_amp,
+        )
 
         self.ebm = ebm.to(self.device)
         self.encoder = encoder

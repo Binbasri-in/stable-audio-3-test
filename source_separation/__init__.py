@@ -3,7 +3,16 @@
 # Evaluation and Validation Suite
 # Trainers and Objectives Suite
 # Neural Network Architectures Suite
-from . import datasets, evaluation, models, trainers
+from . import (
+    configs,
+    datasets,
+    evaluation,
+    functional,
+    losses,
+    models,
+    pipelines,
+    trainers,
+)
 from .dataloaders import (
     create_moisesdb_dataloader,
     create_slakh_dataloader,
@@ -218,4 +227,9 @@ __all__ = [
     "JEMSingleSourceSeparator",
     "AudioJEPA",
     "JEPAGuidedSeparationHead",
+    # Submodules
+    "configs",
+    "functional",
+    "losses",
+    "pipelines",
 ]

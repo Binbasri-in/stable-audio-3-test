@@ -54,13 +54,20 @@ class BaseTrainer:
         device: torch.device | None = None,
         checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
+        use_amp: bool = False,
     ) -> None:
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
         if self.checkpoint_dir:
             self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.max_grad_norm = max_grad_norm
+        self.use_amp = use_amp
         self.history: dict[str, list[float]] = {}
+
+        # Hardware-aware Automatic Mixed Precision (AMP)
+        device_type = self.device.type if self.device.type in ("cuda", "mps", "cpu") else "cpu"
+        self.autocast_context = torch.amp.autocast(device_type=device_type, enabled=self.use_amp)
+        self.scaler = torch.amp.GradScaler("cuda", enabled=(self.use_amp and self.device.type == "cuda"))
 
     def _resolve_device(self, module_or_tensor: Any | None = None) -> torch.device:
         """Resolves device from a given module or tensor if available, otherwise defaults to self.device."""

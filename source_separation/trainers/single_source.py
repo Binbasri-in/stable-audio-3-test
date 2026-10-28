@@ -207,8 +207,14 @@ class SingleSourceTrainer(BaseTrainer):
         scheduler: Any | None = None,
         grad_clip: float = 1.0,
         checkpoint_dir: str | Path | None = None,
+        use_amp: bool = False,
     ) -> None:
-        super().__init__(device=device, checkpoint_dir=checkpoint_dir, max_grad_norm=grad_clip)
+        super().__init__(
+            device=device,
+            checkpoint_dir=checkpoint_dir,
+            max_grad_norm=grad_clip,
+            use_amp=use_amp,
+        )
         self.model = model.to(self.device)
         self.optimizer = optimizer
         self.loss_fn = loss_fn or SingleSourceSeparationLoss()
@@ -263,22 +269,31 @@ class SingleSourceTrainer(BaseTrainer):
             target = batch["target_audio"].to(self.device)
 
             self.optimizer.zero_grad()
-            out = self.model(mix)
-            pred = self._extract_reconstruction(out)
+            with self.autocast_context:
+                out = self.model(mix)
+                pred = self._extract_reconstruction(out)
 
-            # Support loss functions taking full model dict (e.g. VAE with mu/logvar)
-            # or functions taking just predicted reconstruction tensor
-            try:
-                loss_dict = self.loss_fn(out, target)
-            except TypeError:
-                loss_dict = self.loss_fn(pred, target)
+                # Support loss functions taking full model dict (e.g. VAE with mu/logvar)
+                # or functions taking just predicted reconstruction tensor
+                try:
+                    loss_dict = self.loss_fn(out, target)
+                except TypeError:
+                    loss_dict = self.loss_fn(pred, target)
 
-            total_loss = loss_dict["total_loss"]
+                total_loss = loss_dict["total_loss"]
 
-            total_loss.backward()
-            if self.grad_clip > 0:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
-            self.optimizer.step()
+            if self.scaler.is_enabled():
+                self.scaler.scale(total_loss).backward()
+                if self.grad_clip > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                total_loss.backward()
+                if self.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
+                self.optimizer.step()
 
             total_loss_sum += float(total_loss.item())
             l1_sum += float(loss_dict["l1_loss"].item())
@@ -394,6 +409,8 @@ class SingleSourceTrainer(BaseTrainer):
         }
         if self.scheduler is not None and hasattr(self.scheduler, "state_dict"):
             ckpt["scheduler_state_dict"] = self.scheduler.state_dict()
+        if self.scaler.is_enabled():
+            ckpt["scaler_state_dict"] = self.scaler.state_dict()
         torch.save(ckpt, str(path))
         logger.debug(f"Saved checkpoint to: {path}")
 
@@ -405,6 +422,8 @@ class SingleSourceTrainer(BaseTrainer):
             self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         if "scheduler_state_dict" in ckpt and self.scheduler is not None and hasattr(self.scheduler, "load_state_dict"):
             self.scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+        if "scaler_state_dict" in ckpt and ckpt["scaler_state_dict"] and self.scaler.is_enabled():
+            self.scaler.load_state_dict(ckpt["scaler_state_dict"])
         if "history" in ckpt:
             self.history = ckpt["history"]
         if "best_si_sdr" in ckpt:

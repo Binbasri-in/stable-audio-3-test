@@ -33,7 +33,7 @@ Submodules:
 
 from __future__ import annotations
 
-from . import autoencoder, autoencoders, ebm, glow, jem, jepa, spectrogram, vae
+from . import autoencoder, autoencoders, ebm, glow, jem, jepa, registry, spectrogram, vae
 from .autoencoder import (
     DownsampleBlock1D,
     ResidualBlock1D,
@@ -71,6 +71,11 @@ from .jepa import (
     JEPAEncoderBlock,
     JEPAGuidedSeparationHead,
 )
+from .registry import (
+    get_model,
+    list_models,
+    register_model,
+)
 from .spectrogram import (
     DownsampleBlock2D,
     ResidualBlock2D,
@@ -100,6 +105,11 @@ __all__ = [
     "ebm",
     "jem",
     "jepa",
+    "registry",
+    # Model Factory & Registry
+    "get_model",
+    "list_models",
+    "register_model",
     # 1D Waveform Autoencoders
     "ResidualBlock1D",
     "DownsampleBlock1D",

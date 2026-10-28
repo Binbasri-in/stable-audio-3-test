@@ -36,9 +36,15 @@ class JEPASeparationTrainer(BaseTrainer):
         device: torch.device | None = None,
         checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
+        use_amp: bool = False,
     ) -> None:
         resolved_device = device or self._resolve_device(sep_head)
-        super().__init__(device=resolved_device, checkpoint_dir=checkpoint_dir, max_grad_norm=max_grad_norm)
+        super().__init__(
+            device=resolved_device,
+            checkpoint_dir=checkpoint_dir,
+            max_grad_norm=max_grad_norm,
+            use_amp=use_amp,
+        )
 
         self.sep_head = sep_head.to(self.device)
         self.optimizer = optimizer
@@ -62,18 +68,27 @@ class JEPASeparationTrainer(BaseTrainer):
             mix = batch["mix_audio"].to(self.device)
             target = batch["target_audio"].to(self.device)
 
-            # Separate using target as prior reference
-            pred = self.sep_head(mix, clean_source_ref=target)
-
-            l1 = F.l1_loss(pred, target)
-            stft = self.stft_loss_fn(pred, target)
-            loss = l1 + 0.5 * stft
-
             self.optimizer.zero_grad()
-            loss.backward()
-            if self.max_grad_norm > 0:
-                torch.nn.utils.clip_grad_norm_(self.sep_head.parameters(), self.max_grad_norm)
-            self.optimizer.step()
+            with self.autocast_context:
+                # Separate using target as prior reference
+                pred = self.sep_head(mix, clean_source_ref=target)
+
+                l1 = F.l1_loss(pred, target)
+                stft = self.stft_loss_fn(pred, target)
+                loss = l1 + 0.5 * stft
+
+            if self.scaler.is_enabled():
+                self.scaler.scale(loss).backward()
+                if self.max_grad_norm > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.sep_head.parameters(), self.max_grad_norm)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                if self.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(self.sep_head.parameters(), self.max_grad_norm)
+                self.optimizer.step()
 
             total_loss += float(loss.item())
             total_l1 += float(l1.item())

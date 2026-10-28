@@ -27,9 +27,15 @@ class AudioJEPATrainer(BaseTrainer):
         device: torch.device | None = None,
         checkpoint_dir: str | Path | None = None,
         max_grad_norm: float = 1.0,
+        use_amp: bool = False,
     ) -> None:
         resolved_device = device or self._resolve_device(jepa)
-        super().__init__(device=resolved_device, checkpoint_dir=checkpoint_dir, max_grad_norm=max_grad_norm)
+        super().__init__(
+            device=resolved_device,
+            checkpoint_dir=checkpoint_dir,
+            max_grad_norm=max_grad_norm,
+            use_amp=use_amp,
+        )
 
         self.jepa = jepa.to(self.device)
         self.optimizer = optimizer
@@ -48,14 +54,24 @@ class AudioJEPATrainer(BaseTrainer):
 
         for batch in dataloader:
             wav = (batch["target_audio"] if "target_audio" in batch else batch["target"]).to(self.device)
-            out = self.jepa(wav)
-            loss = out["loss"]
 
             self.optimizer.zero_grad()
-            loss.backward()
-            if self.max_grad_norm > 0:
-                torch.nn.utils.clip_grad_norm_(self.jepa.parameters(), self.max_grad_norm)
-            self.optimizer.step()
+            with self.autocast_context:
+                out = self.jepa(wav)
+                loss = out["loss"]
+
+            if self.scaler.is_enabled():
+                self.scaler.scale(loss).backward()
+                if self.max_grad_norm > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.jepa.parameters(), self.max_grad_norm)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                if self.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(self.jepa.parameters(), self.max_grad_norm)
+                self.optimizer.step()
 
             # Update target encoder via EMA
             self.jepa.update_target_encoder()

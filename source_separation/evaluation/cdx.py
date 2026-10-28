@@ -475,6 +475,10 @@ class CascadedCinematicDemixer(nn.Module):
         if isinstance(bg_out, dict):
             s_hat_fx = bg_out.get("effects", bg_out.get("fx", bg_out.get("sfx")))
             s_hat_mx = bg_out.get("music", bg_out.get("mx"))
+            if s_hat_fx is None or s_hat_mx is None:
+                recon = bg_out.get("recon", 0.5 * mixture_rem)
+                s_hat_fx = 0.5 * recon
+                s_hat_mx = 0.5 * recon
         elif isinstance(bg_out, (list, tuple)) and len(bg_out) >= 2:
             s_hat_fx, s_hat_mx = bg_out[0], bg_out[1]
         else:
